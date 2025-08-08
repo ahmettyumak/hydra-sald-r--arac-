@@ -1,6 +1,5 @@
 import os
 import socket
-import glob
 from services.scanner import NmapTarayici
 from services.ftp import FTPBruteForce
 from services.ssh import SSHBruteForce
@@ -40,10 +39,7 @@ def hedef_ip_al():
             return ip
         print("[!] Geçersiz IP formatı! Örnek: 192.168.1.1")
 
-def servis_secimi(manuel_servisler=None):
-    if manuel_servisler:
-        return manuel_servisler
-    
+def servis_secimi():
     print("\nKullanılabilir Servisler:")
     for i, (servis, port) in enumerate(Ayarlar.PORTLAR.items(), 1):
         print(f"{i}. {servis.upper()} (Port {port})")
@@ -67,50 +63,58 @@ def servis_secimi(manuel_servisler=None):
         return None
 
 def nmap_tarama_ve_saldiri(hedef_ip, raporlayici):
-    port_araligi = input(f"Port aralığı (Varsayılan: {Ayarlar.NMAP_PORT_ARALIGI}): ") or Ayarlar.NMAP_PORT_ARALIGI
-    tarayici = NmapTarayici(hedef_ip)
-    acik_servisler = tarayici.detayli_tarama(port_araligi)
-    
-    if not acik_servisler:
-        print("[-] Açık port bulunamadı")
-        return
-    
-    print("\n[+] Bulunan Servisler:")
-    for servis in acik_servisler:
-        print(f" - Port {servis['port']}/{servis['protokol']}: {servis['servis']} ({servis['versiyon']})")
-    
-    servis_esleme = {
-        'ftp': FTPBruteForce,
-        'ssh': SSHBruteForce,
-        'http': HTTPBruteForce,
-        'https': HTTPSBruteForce,
-        'mysql': MySQLBruteForce,
-        'postgresql': PostgreSQLBruteForce,
-        'smtp': SMTPBruteForce,
-        'pop3': POP3BruteForce,
-        'imap': IMAPBruteForce,
-        'rdp': RDPBruteForce,
-        'smb': SMBBruteForce,
-        'telnet': TelnetBruteForce,
-        'vnc': VNCBruteForce,
-        'mssql': MSSQLBruteForce,
-        'mongodb': MongoDBBruteForce
-    }
-    
-    for servis in acik_servisler:
-        servis_adi = servis['servis']
-        if servis_adi in servis_esleme:
-            print(f"\n[+] {servis_adi.upper()} servisi taranıyor ({hedef_ip}:{servis['port']})...")
-            try:
-                saldiri = servis_esleme[servis_adi](hedef_ip, servis['port'])
-                sonuc = saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
-                if sonuc:
-                    print(f"[+] {servis_adi.upper()} için başarılı giriş bulundu!")
-                else:
-                    print(f"[-] {servis_adi.upper()} için başarılı giriş bulunamadı.")
-            except Exception as e:
-                print(f"[!] Hata: {str(e)}")
-                continue
+    try:
+        print("\n[+] Nmap tarama ayarları:")
+        print(f" - Port aralığı (varsayılan: {Ayarlar.NMAP_PORT_ARALIGI})")
+        print(f" - Tarama parametreleri: {Ayarlar.NMAP_ARGUMANLARI}")
+        
+        port_araligi = input("Port aralığı girin (örn: 1-1000): ").strip() or Ayarlar.NMAP_PORT_ARALIGI
+        tarayici = NmapTarayici(hedef_ip)
+        acik_servisler = tarayici.detayli_tarama(port_araligi)
+        
+        if not acik_servisler:
+            print("[-] Açık port bulunamadı")
+            return
+        
+        print("\n[+] Bulunan Servisler:")
+        for servis in acik_servisler:
+            print(f" - Port {servis['port']}/{servis['protokol']}: {servis['servis']} ({servis['versiyon']})")
+        
+        servis_esleme = {
+            'ftp': FTPBruteForce,
+            'ssh': SSHBruteForce,
+            'http': HTTPBruteForce,
+            'https': HTTPSBruteForce,
+            'mysql': MySQLBruteForce,
+            'postgresql': PostgreSQLBruteForce,
+            'mongodb': MongoDBBruteForce,
+            'smtp': SMTPBruteForce,
+            'pop3': POP3BruteForce,
+            'imap': IMAPBruteForce,
+            'rdp': RDPBruteForce,
+            'smb': SMBBruteForce,
+            'telnet': TelnetBruteForce,
+            'vnc': VNCBruteForce,
+            'mssql': MSSQLBruteForce
+        }
+        
+        for servis in acik_servisler:
+            servis_adi = servis['servis']
+            if servis_adi in servis_esleme:
+                print(f"\n[+] {servis_adi.upper()} servisi taranıyor ({hedef_ip}:{servis['port']})...")
+                try:
+                    saldiri = servis_esleme[servis_adi](hedef_ip, servis['port'])
+                    sonuc = saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
+                    if sonuc:
+                        print(f"[+] {servis_adi.upper()} için başarılı giriş bulundu!")
+                    else:
+                        print(f"[-] {servis_adi.upper()} için başarılı giriş bulunamadı.")
+                except Exception as e:
+                    print(f"[!] Hata: {str(e)}")
+                    continue
+    except Exception as e:
+        print(f"[!] Nmap tarama hatası: {str(e)}")
+        raporlayici.rapor_ekle("NMAP", hedef_ip, "N/A", "HATA", str(e))
 
 def manuel_saldiri(hedef_ip, secilen_servisler, raporlayici):
     servisler = []

@@ -1,5 +1,6 @@
 import nmap
 from utils.raporlayici import Raporlayici
+from config import Ayarlar
 
 class NmapTarayici:
     def __init__(self, hedef_ip):
@@ -7,14 +8,15 @@ class NmapTarayici:
         self.nm = nmap.PortScanner()
         self.rapor = Raporlayici()
     
-    def detayli_tarama(self, port_araligi='1-10000'):
+    def detayli_tarama(self, port_araligi=None):
         """Nmap ile gelişmiş servis ve versiyon tespiti"""
         try:
+            port_araligi = port_araligi or Ayarlar.NMAP_PORT_ARALIGI
             print(f"[*] {self.hedef_ip} Nmap taraması başlatılıyor (Portlar: {port_araligi})...")
             
-            # Gelişmiş tarama parametreleri
-            args = '-sS -sV --script=banner -T4 --open'
-            self.nm.scan(hosts=self.hedef_ip, ports=port_araligi, arguments=args)
+            self.nm.scan(hosts=self.hedef_ip, 
+                        ports=port_araligi, 
+                        arguments=Ayarlar.NMAP_ARGUMANLARI)
             
             if not self.nm.all_hosts():
                 raise ValueError("Hedef taranamadı veya filtreli")

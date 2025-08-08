@@ -9,7 +9,7 @@ class MongoDBBruteForce(BruteForceBase):
         return "mongodb"
     
     def _komut_olustur(self, kullanici_listesi, sifre_listesi):
-        komut = [
+        return [
             "hydra",
             "-L", kullanici_listesi,
             "-P", sifre_listesi,
@@ -20,4 +20,3 @@ class MongoDBBruteForce(BruteForceBase):
             "-f",
             "-o", f"sonuclar/{self.servis_adi.lower()}_sonuclari.txt"
         ]
-        return komut

@@ -8,7 +8,14 @@ class Ayarlar:
     PAROLA_LISTESI = os.path.join(BASE_DIR, "wordlists", "passwords.txt")
     RAPOR_DOSYASI = os.path.join(BASE_DIR, "reports", "sonuc_raporu.txt")
     
-
+    # Nmap ayarları
+    NMAP_PORT_ARALIGI = '1-1000'
+    NMAP_ARGUMANLARI = '-sS -sV --script=banner -T4 --open'
+    
+    # Hydra ayarları
+    HYDRA_TIMEOUT = 30
+    HYDRA_THREADS = 4
+    
     # Port ayarları
     PORTLAR = {
         "ftp": 21,
@@ -17,6 +24,7 @@ class Ayarlar:
         "https": 443,
         "mysql": 3306,
         "postgresql": 5432,
+        "mongodb": 27017,
         "smtp": 25,
         "pop3": 110,
         "imap": 143,
@@ -26,7 +34,3 @@ class Ayarlar:
         "vnc": 5900,
         "mssql": 1433
     }
-    
-    # Hydra ayarları
-    HYDRA_TIMEOUT = 30
-    HYDRA_THREADS = 4
