@@ -6,7 +6,7 @@ from services.ssh import SSHBruteForce
 from services.http import HTTPBruteForce
 from services.https import HTTPSBruteForce
 from services.mysql import MySQLBruteForce
-from services.postgres import PostgreSQLBruteForce
+from services.postgresql import PostgreSQLBruteForce
 from services.smtp import SMTPBruteForce
 from services.pop3 import POP3BruteForce
 from services.imap import IMAPBruteForce
