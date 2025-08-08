@@ -22,7 +22,7 @@ class BruteForceBase:
                     self.raporlayici.rapor_ekle(
                         self.servis_adi, 
                         self.hedef_ip, 
-                        self.hedef_port,
+                        self.hedef_port, 
                         "BAŞARILI",
                         satir.strip()
                     )

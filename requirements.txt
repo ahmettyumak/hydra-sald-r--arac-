@@ -1,2 +1,4 @@
 # Gerekli bağımlılıklar
 python-nmap
+python-nmap pymongo
+nmap mongodb-clients
