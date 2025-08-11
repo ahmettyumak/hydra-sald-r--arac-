@@ -8,12 +8,12 @@ class Ayarlar:
     PAROLA_LISTESI = os.path.join(BASE_DIR, "wordlists", "passwords.txt")
     RAPOR_DOSYASI = os.path.join(BASE_DIR, "reports", "sonuc_raporu.txt")
     
-    # Nmap ayarları
-    NMAP_PORT_ARALIGI = '1-1000'
+    # Nmap ayarları (None -> Nmap varsayılanı: en yaygın 1000 TCP port)
+    NMAP_PORT_ARALIGI = None
     NMAP_ARGUMANLARI = '-sS -sV --script=banner -T4 --open'
     
     # Hydra ayarları
-    HYDRA_TIMEOUT = 120  # FTP için yeterli süre
+    HYDRA_TIMEOUT = 300  # Büyük wordlistlerde zaman aşımını önlemek için artırıldı
     HYDRA_THREADS = 4
     
     # FTP özel ayarları

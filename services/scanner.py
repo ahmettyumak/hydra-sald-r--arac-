@@ -11,17 +11,22 @@ class NmapTarayici:
     def detayli_tarama(self, port_araligi=None):
         """Nmap ile gelişmiş servis ve versiyon tespiti"""
         try:
-            port_araligi = port_araligi or Ayarlar.NMAP_PORT_ARALIGI
-            print(f"[*] {self.hedef_ip} Nmap taraması başlatılıyor (Portlar: {port_araligi})...")
+            port_araligi = port_araligi if port_araligi is not None else Ayarlar.NMAP_PORT_ARALIGI
+            if port_araligi:
+                print(f"[*] {self.hedef_ip} Nmap taraması başlatılıyor (Portlar: {port_araligi})...")
+            else:
+                print(f"[*] {self.hedef_ip} Nmap taraması başlatılıyor (Varsayılan popüler portlar)...")
             
             # Parametrik hedef kontrolü
             hedef = self._hedef_kontrol(self.hedef_ip)
             if not hedef:
                 raise ValueError(f"Geçersiz hedef formatı: {self.hedef_ip}")
             
-            self.nm.scan(hosts=hedef, 
-                        ports=port_araligi, 
-                        arguments=Ayarlar.NMAP_ARGUMANLARI)
+            if port_araligi:
+                self.nm.scan(hosts=hedef, ports=port_araligi, arguments=Ayarlar.NMAP_ARGUMANLARI)
+            else:
+                # ports parametresi None ise nmap'in varsayılan port listesini kullan
+                self.nm.scan(hosts=hedef, arguments=Ayarlar.NMAP_ARGUMANLARI)
             
             if not self.nm.all_hosts():
                 raise ValueError("Hedef taranamadı veya filtreli")

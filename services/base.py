@@ -22,34 +22,19 @@ class BruteForceBase:
                 return False
         # FTP bağlantı kontrolü
         elif self._hydra_tipi() == "ftp":
-            if not self._ftp_baglanti_kontrol():
-                print("[!] FTP sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
-                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "FTP bağlantısı kurulamadı")
-                return False
+            pass  # Bağlantı kontrolü kaldırıldı; bazı FTP'ler anonim girişi kapalı tutuyor
         # MySQL bağlantı kontrolü
         elif self._hydra_tipi() == "mysql":
-            if not self._mysql_baglanti_kontrol():
-                print("[!] MySQL sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
-                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "MySQL bağlantısı kurulamadı")
-                return False
+            pass  # Bağlantı kontrolü kaldırıldı
         # PostgreSQL bağlantı kontrolü
         elif self._hydra_tipi() == "postgres":
-            if not self._postgresql_baglanti_kontrol():
-                print("[!] PostgreSQL sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
-                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "PostgreSQL bağlantısı kurulamadı")
-                return False
+            pass  # Bağlantı kontrolü kaldırıldı; bazı PG ayarları ilk SYN'e cevap geciktirebilir
         # MongoDB bağlantı kontrolü
         elif self._hydra_tipi() == "mongodb":
-            if not self._mongodb_baglanti_kontrol():
-                print("[!] MongoDB sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
-                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "MongoDB bağlantısı kurulamadı")
-                return False
+            pass  # Bağlantı kontrolü kaldırıldı
         # MSSQL bağlantı kontrolü
         elif self._hydra_tipi() == "mssql":
-            if not self._mssql_baglanti_kontrol():
-                print("[!] MSSQL sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
-                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "MSSQL bağlantısı kurulamadı")
-                return False
+            pass  # Bağlantı kontrolü kaldırıldı
         # HTTP Basic Auth kontrolü (yanlış pozitifleri azaltmak için)
         hydra_type = self._hydra_tipi()
         if hydra_type in ("http-get", "https-get") and not getattr(self, 'form_params', None):
@@ -64,6 +49,7 @@ class BruteForceBase:
         print(f"[*] {self.servis_adi.upper()} saldırısı başlatılıyor...")
         print(f"[*] Hedef: {self.hedef_ip}:{self.hedef_port}")
         try:
+            # Büyük wordlistlerde process'in erken kesilmemesi için yüksek timeout
             sonuc = subprocess.run(komut, capture_output=True, text=True, timeout=Ayarlar.HYDRA_TIMEOUT)
             print(f"[*] {self.servis_adi.upper()} sonuçları:")
             print("-" * 50)
