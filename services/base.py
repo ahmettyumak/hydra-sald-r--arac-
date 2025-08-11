@@ -2,6 +2,19 @@ import subprocess
 from utils.raporlayici import Raporlayici
 from config import Ayarlar
 
+# Konsol renkleri
+try:
+    from colorama import init as colorama_init
+    colorama_init(autoreset=True)
+except Exception:
+    pass
+
+class Colors:
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    RESET = "\033[0m"
+
 class BruteForceBase:
     VNC_ONLY_PASSWORD = ["vnc", "redis", "snmp", "adam6500", "oracle-listener", "s7-300", "cisco"]
     HTTP_TYPES = ["http-get", "https-get", "http-post-form", "https-post-form"]
@@ -17,34 +30,18 @@ class BruteForceBase:
         # SMTP AUTH kontrolü
         if self._hydra_tipi() == "smtp":
             if not self._smtp_auth_kontrol():
-                print("[!] SMTP sunucusunda AUTH desteği yok, brute-force başlatılmadı.")
+                print(f"{Colors.RED}[!] SMTP sunucusunda AUTH desteği yok, brute-force başlatılmadı.{Colors.RESET}")
                 self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "SMTP AUTH desteklenmiyor")
                 return False
-        # FTP bağlantı kontrolü
-        elif self._hydra_tipi() == "ftp":
-            pass  # Bağlantı kontrolü kaldırıldı; bazı FTP'ler anonim girişi kapalı tutuyor
-        # MySQL bağlantı kontrolü
-        elif self._hydra_tipi() == "mysql":
-            pass  # Bağlantı kontrolü kaldırıldı
-        # PostgreSQL bağlantı kontrolü
-        elif self._hydra_tipi() == "postgres":
-            pass  # Bağlantı kontrolü kaldırıldı; bazı PG ayarları ilk SYN'e cevap geciktirebilir
-        # MongoDB bağlantı kontrolü
-        elif self._hydra_tipi() == "mongodb":
-            pass  # Bağlantı kontrolü kaldırıldı
-        # MSSQL bağlantı kontrolü
-        elif self._hydra_tipi() == "mssql":
-            pass  # Bağlantı kontrolü kaldırıldı
         # HTTP Basic Auth kontrolü (yanlış pozitifleri azaltmak için)
         hydra_type = self._hydra_tipi()
         if hydra_type in ("http-get", "https-get") and not getattr(self, 'form_params', None):
             # Basic Auth kontrolünü daha esnek yap - sadece uyarı ver, engelleme
             if not self._http_basic_auth_kontrol():
-                print("[!] HTTP Basic Auth tespit edilmedi. http-get/https-get deneniyor ama yanlış pozitif olabilir.")
-                print("[!] Form tabanlı giriş için -F ile form spesifikasyonu sağlayın.")
-                # Kontrolü geç, brute'u dene ama uyarı ver
+                print(f"{Colors.YELLOW}[!] HTTP Basic Auth tespit edilmedi. http-get/https-get deneniyor ama yanlış pozitif olabilir.{Colors.RESET}")
+                print(f"{Colors.YELLOW}[!] Form tabanlı giriş için -F ile form spesifikasyonu sağlayın.{Colors.RESET}")
             else:
-                print("[+] HTTP Basic Auth tespit edildi. http-get/https-get güvenli şekilde çalıştırılıyor.")
+                print(f"{Colors.GREEN}[+] HTTP Basic Auth tespit edildi. http-get/https-get güvenli şekilde çalıştırılıyor.{Colors.RESET}")
         komut = self._komut_olustur(kullanici_listesi, sifre_listesi)
         print(f"[*] {self.servis_adi.upper()} saldırısı başlatılıyor...")
         print(f"[*] Hedef: {self.hedef_ip}:{self.hedef_port}")
@@ -56,9 +53,16 @@ class BruteForceBase:
             stdout_text = sonuc.stdout or ""
             stderr_text = sonuc.stderr or ""
             if stdout_text:
-                print(stdout_text)
+                for _line in stdout_text.splitlines():
+                    low = _line.lower()
+                    if "might be valid but account not active" in low:
+                        print(f"{Colors.YELLOW}{_line}{Colors.RESET}")
+                    elif "error" in low or "can not connect" in low:
+                        print(f"{Colors.RED}{_line}{Colors.RESET}")
+                    else:
+                        print(_line)
             if stderr_text:
-                print(f"[!] Hata çıktısı: {stderr_text}")
+                print(f"{Colors.RED}[!] Hata çıktısı: {stderr_text}{Colors.RESET}")
 
             import re
             satirlar = stdout_text.splitlines()
@@ -81,29 +85,27 @@ class BruteForceBase:
                 
                 # HTTP için ek filtreleme - sadece gerçek başarı satırlarını kabul et
                 if hydra_type in ("http-get", "https-get"):
-                    # HTTP'de genellikle "login: user password: pass" formatında olur
-                    # Ayrıca Hydra'nın özet bilgisini kontrol et
                     if "valid password found" not in stdout_text.lower():
                         basarili_satirlar = []  # Özet yoksa başarı yok
 
             if basarili_satirlar:
-                print(f"\n[+] {self.servis_adi.upper()} için başarılı girişler:")
+                print(f"\n{Colors.GREEN}[+] {self.servis_adi.upper()} için başarılı girişler:{Colors.RESET}")
                 for s in basarili_satirlar:
-                    print(f"    {s.strip()}")
+                    print(f"    {Colors.GREEN}{s.strip()}{Colors.RESET}")
                     self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "BAŞARILI", s.strip())
                 print("-" * 50)
                 return True
             else:
-                print(f"[-] {self.servis_adi.upper()} için başarılı giriş bulunamadı.")
+                print(f"{Colors.RED}[-] {self.servis_adi.upper()} için başarılı giriş bulunamadı.{Colors.RESET}")
                 self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "BAŞARISIZ", "Başarılı giriş bulunamadı")
                 print("-" * 50)
                 return False
         except subprocess.TimeoutExpired:
-            print(f"[!] {self.servis_adi.upper()} zaman aşımı!")
+            print(f"{Colors.RED}[!] {self.servis_adi.upper()} zaman aşımı!{Colors.RESET}")
             self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "Zaman aşımı")
             return False
         except Exception as e:
-            print(f"[!] {self.servis_adi.upper()} hatası: {str(e)}")
+            print(f"{Colors.RED}[!] {self.servis_adi.upper()} hatası: {str(e)}{Colors.RESET}")
             self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", str(e))
             return False
 
