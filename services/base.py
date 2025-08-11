@@ -20,6 +20,36 @@ class BruteForceBase:
                 print("[!] SMTP sunucusunda AUTH desteği yok, brute-force başlatılmadı.")
                 self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "SMTP AUTH desteklenmiyor")
                 return False
+        # FTP bağlantı kontrolü
+        elif self._hydra_tipi() == "ftp":
+            if not self._ftp_baglanti_kontrol():
+                print("[!] FTP sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
+                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "FTP bağlantısı kurulamadı")
+                return False
+        # MySQL bağlantı kontrolü
+        elif self._hydra_tipi() == "mysql":
+            if not self._mysql_baglanti_kontrol():
+                print("[!] MySQL sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
+                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "MySQL bağlantısı kurulamadı")
+                return False
+        # PostgreSQL bağlantı kontrolü
+        elif self._hydra_tipi() == "postgres":
+            if not self._postgresql_baglanti_kontrol():
+                print("[!] PostgreSQL sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
+                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "PostgreSQL bağlantısı kurulamadı")
+                return False
+        # MongoDB bağlantı kontrolü
+        elif self._hydra_tipi() == "mongodb":
+            if not self._mongodb_baglanti_kontrol():
+                print("[!] MongoDB sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
+                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "MongoDB bağlantısı kurulamadı")
+                return False
+        # MSSQL bağlantı kontrolü
+        elif self._hydra_tipi() == "mssql":
+            if not self._mssql_baglanti_kontrol():
+                print("[!] MSSQL sunucusuna bağlanılamıyor, brute-force başlatılmadı.")
+                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "MSSQL bağlantısı kurulamadı")
+                return False
         # HTTP Basic Auth kontrolü (yanlış pozitifleri azaltmak için)
         hydra_type = self._hydra_tipi()
         if hydra_type in ("http-get", "https-get") and not getattr(self, 'form_params', None):
@@ -119,13 +149,34 @@ class BruteForceBase:
             komut.extend(["-s", str(self.port)])
         else:
             komut.extend(["-s", str(self.hedef_port)])
-        # Thread
-        thread_sayisi = getattr(self, 'thread_sayisi', Ayarlar.HYDRA_THREADS)
-        komut.extend(["-t", str(thread_sayisi)])
-        # Timeout
-        timeout = getattr(self, 'timeout', Ayarlar.HYDRA_TIMEOUT)
-        if timeout != Ayarlar.HYDRA_TIMEOUT:
-            komut.extend(["-W", str(timeout)])
+        # FTP için özel ayarlar
+        if hydra_type == "ftp":
+            # FTP için daha uzun timeout ve tek thread
+            komut.extend(["-W", "60"])  # 60 saniye bağlantı timeout
+            komut.extend(["-t", "1"])   # Tek thread (daha güvenilir)
+        # Veritabanı servisleri için özel ayarlar
+        elif hydra_type in ["mysql", "postgres", "mongodb", "mssql"]:
+            # Veritabanı servisleri için özel timeout ve thread ayarları
+            if hydra_type == "mysql":
+                komut.extend(["-W", str(Ayarlar.MYSQL_TIMEOUT)])
+                komut.extend(["-t", str(Ayarlar.MYSQL_THREADS)])
+            elif hydra_type == "postgres":
+                komut.extend(["-W", str(Ayarlar.POSTGRESQL_TIMEOUT)])
+                komut.extend(["-t", str(Ayarlar.POSTGRESQL_THREADS)])
+            elif hydra_type == "mongodb":
+                komut.extend(["-W", str(Ayarlar.MONGODB_TIMEOUT)])
+                komut.extend(["-t", str(Ayarlar.MONGODB_THREADS)])
+            elif hydra_type == "mssql":
+                komut.extend(["-W", str(Ayarlar.MSSQL_TIMEOUT)])
+                komut.extend(["-t", str(Ayarlar.MSSQL_THREADS)])
+        else:
+            # Thread
+            thread_sayisi = getattr(self, 'thread_sayisi', Ayarlar.HYDRA_THREADS)
+            komut.extend(["-t", str(thread_sayisi)])
+            # Timeout
+            timeout = getattr(self, 'timeout', Ayarlar.HYDRA_TIMEOUT)
+            if timeout != Ayarlar.HYDRA_TIMEOUT:
+                komut.extend(["-W", str(timeout)])
         # Diğer parametreler
         if hasattr(self, 'verbose') and self.verbose:
             komut.append("-V")
@@ -170,6 +221,114 @@ class BruteForceBase:
             return False
         except Exception:
             return False
+
+    def _ftp_baglanti_kontrol(self):
+        # FTP bağlantısını test etmek için basit bir kontrol
+        try:
+            import ftplib
+            ftp = ftplib.FTP()
+            ftp.connect(self.hedef_ip, self.hedef_port, timeout=5)
+            ftp.login("anonymous", "anonymous") # FTP sunucusuna anonim giriş denemesi
+            ftp.quit()
+            return True
+        except Exception:
+            return False
+
+    def _mysql_baglanti_kontrol(self):
+        # MySQL bağlantısını test etmek için basit bir kontrol
+        try:
+            import mysql.connector
+            conn = mysql.connector.connect(
+                host=self.hedef_ip,
+                port=self.hedef_port,
+                user="root",
+                password="",
+                connection_timeout=5,
+                auth_plugin='mysql_native_password'
+            )
+            conn.close()
+            return True
+        except Exception:
+            # mysql.connector yoksa socket ile basit kontrol
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)
+                result = sock.connect_ex((self.hedef_ip, self.hedef_port))
+                sock.close()
+                return result == 0
+            except:
+                return False
+
+    def _postgresql_baglanti_kontrol(self):
+        # PostgreSQL bağlantısını test etmek için basit bir kontrol
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=self.hedef_ip,
+                port=self.hedef_port,
+                user="postgres",
+                password="",
+                connect_timeout=5
+            )
+            conn.close()
+            return True
+        except Exception:
+            # psycopg2 yoksa socket ile basit kontrol
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)
+                result = sock.connect_ex((self.hedef_ip, self.hedef_port))
+                sock.close()
+                return result == 0
+            except:
+                return False
+
+    def _mongodb_baglanti_kontrol(self):
+        # MongoDB bağlantısını test etmek için basit bir kontrol
+        try:
+            import pymongo
+            client = pymongo.MongoClient(
+                f"mongodb://{self.hedef_ip}:{self.hedef_port}/",
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000
+            )
+            client.admin.command('ping')
+            client.close()
+            return True
+        except Exception:
+            # pymongo yoksa socket ile basit kontrol
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)
+                result = sock.connect_ex((self.hedef_ip, self.hedef_port))
+                sock.close()
+                return result == 0
+            except:
+                return False
+
+    def _mssql_baglanti_kontrol(self):
+        # MSSQL bağlantısını test etmek için basit bir kontrol
+        try:
+            import pyodbc
+            # MSSQL için connection string
+            conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={self.hedef_ip},{self.hedef_port};UID=sa;PWD=;Connection Timeout=5;"
+            conn = pyodbc.connect(conn_str)
+            conn.close()
+            return True
+        except Exception:
+            # pyodbc yoksa socket ile basit kontrol
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(5)
+                result = sock.connect_ex((self.hedef_ip, self.hedef_port))
+                sock.close()
+                return result == 0
+            except:
+                return False
 
     def _http_basic_auth_kontrol(self):
         # Basic Auth gereksinimi var mı? 401 ve WWW-Authenticate başlığı beklenir
