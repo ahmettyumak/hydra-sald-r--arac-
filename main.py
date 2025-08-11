@@ -453,14 +453,6 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             except Exception as e:
                 print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
                 continue
-    
-    # Rapor
-    print(f"\n" + "="*60)
-    print("SONUÇ RAPORU".center(60))
-    print("="*60)
-    raporlayici.rapor_yazdir()
-    raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
-    print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
 
 def main():
     # Dizinleri oluştur
@@ -484,13 +476,6 @@ def main():
             raporlayici = Raporlayici()
             port_check_ve_saldiri(hedef_ip, raporlayici)
             
-            # Rapor
-            print(f"\n" + "="*60)
-            print("SONUÇ RAPORU".center(60))
-            print("="*60)
-            raporlayici.rapor_yazdir()
-            raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
-            print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
     else:
         # Etkileşimli mod
         hedef_ip = hedef_ip_al()
@@ -514,14 +499,6 @@ def main():
             belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici)
         else:
             port_check_ve_saldiri(hedef_ip, raporlayici)
-        
-        # Rapor
-        print(f"\n" + "="*60)
-        print("SONUÇ RAPORU".center(60))
-        print("="*60)
-        raporlayici.rapor_yazdir()
-        raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
-        print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
 
 if __name__ == "__main__":
     main()
