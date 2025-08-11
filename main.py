@@ -29,15 +29,15 @@ def giris_ekrani():
     print("=" * 60)
     print(f"Versiyon: 3.0 | Parametrik Giriş | Port Check | Console Output\n")
     print("💡 İpucu: -h yazarak yardım alabilirsiniz!")
-    print("💡 Kullanım: python main.py [hedef] [parametreler]")
+    print("💡 Kullanım: Sadece IP ve parametreleri yazın!")
     print("💡 Örnekler:")
-    print("   python main.py 192.168.1.1 -h  (tüm servisler)")
-    print("   python main.py 192.168.1.1 -s ssh -t 8  (SSH, 8 thread)")
-    print("   python main.py 192.168.1.1 -s ftp -L users.txt -P pass.txt  (özel wordlist)")
-    print("   python main.py 192.168.1.1 -s http -V -f  (HTTP, verbose, first found)")
-    print("   python main.py 192.168.1.1 -s ssh -l admin -p password123  (tek kullanıcı/şifre)")
-    print("   python main.py 192.168.1.1 -n  (nmap taraması)")
-    print("   python main.py 192.168.1.1  (port check)")
+    print("   192.168.1.1 -h  (tüm servisler)")
+    print("   192.168.1.1 -s ssh -t 8  (SSH, 8 thread)")
+    print("   192.168.1.1 -s ftp -L users.txt -P pass.txt  (özel wordlist)")
+    print("   192.168.1.1 -s http -V -f  (HTTP, verbose, first found)")
+    print("   192.168.1.1 -s ssh -l admin -p password123  (tek kullanıcı/şifre)")
+    print("   192.168.1.1 -n  (nmap taraması)")
+    print("   192.168.1.1  (port check)")
     print("=" * 60)
 
 def gecerli_ip_girisi(ip):
@@ -80,10 +80,15 @@ def parametrik_giris_kontrol(giris):
         print("  -o [dosya]: Çıktı dosyası")
         print("  -b [dosya]: Log dosyası")
         print("  -x: XML çıktı")
-        print("  -F [parametreler]: Form parametreleri")
+        print("  -F [parametreler]: Form parametreleri (HTTP için)")
         print("  -C [dosya]: Özel parametre dosyası")
         print("  -M [dosya]: Modül dosyası")
         print("  -m [servis]: Servis adı")
+        print("\nKullanım:")
+        print("  Sadece IP ve parametreleri yazın:")
+        print("  192.168.1.1 -h")
+        print("  192.168.1.1 -s ssh")
+        print("  192.168.1.1 -n")
         print("  Yardım: -h, --help, help, yardım")
         print("  Çıkış: exit, quit, çıkış")
         print("="*60)
@@ -126,7 +131,7 @@ def parametrik_giris_kontrol(giris):
 
 def hedef_ip_al():
     while True:
-        giris = input("Hedef IP/Hostname girin (yardım için -h): ").strip()
+        giris = input("Hedef IP ve parametreleri girin (örn: 192.168.1.1 -h): ").strip()
         
         # Birleşik giriş desteği: "192.168.1.1 -h" gibi
         if ' ' in giris:
@@ -152,6 +157,8 @@ def hedef_ip_al():
         
         print("[!] Geçersiz format! Örnekler:")
         print("  - IP: 192.168.1.1")
+        print("  - IP + Parametre: 192.168.1.1 -h")
+        print("  - IP + Servis: 192.168.1.1 -s ssh")
         print("  - Aralık: 192.168.1.1-10")
         print("  - CIDR: 192.168.1.0/24")
         print("  - Hostname: example.com")

@@ -23,10 +23,13 @@ class BruteForceBase:
         # HTTP Basic Auth kontrolü (yanlış pozitifleri azaltmak için)
         hydra_type = self._hydra_tipi()
         if hydra_type in ("http-get", "https-get") and not getattr(self, 'form_params', None):
+            # Basic Auth kontrolünü daha esnek yap - sadece uyarı ver, engelleme
             if not self._http_basic_auth_kontrol():
-                print("[!] HTTP Basic Auth tespit edilmedi. http-get/https-get atlandı. Form tabanlı giriş için -F ile form spesifikasyonu sağlayın.")
-                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "ATLANDI", "Basic Auth tespit edilmedi")
-                return False
+                print("[!] HTTP Basic Auth tespit edilmedi. http-get/https-get deneniyor ama yanlış pozitif olabilir.")
+                print("[!] Form tabanlı giriş için -F ile form spesifikasyonu sağlayın.")
+                # Kontrolü geç, brute'u dene ama uyarı ver
+            else:
+                print("[+] HTTP Basic Auth tespit edildi. http-get/https-get güvenli şekilde çalıştırılıyor.")
         komut = self._komut_olustur(kullanici_listesi, sifre_listesi)
         print(f"[*] {self.servis_adi.upper()} saldırısı başlatılıyor...")
         print(f"[*] Hedef: {self.hedef_ip}:{self.hedef_port}")
@@ -56,6 +59,16 @@ class BruteForceBase:
                 # login ve password aynı satırda olmalı
                 lp_regex = re.compile(r"\b(login|user)\s*:\s*\S+.*\bpass(?:word)?\s*:\s*\S+", re.IGNORECASE)
                 basarili_satirlar = [s for s in satirlar if lp_regex.search(s)]
+                # Bilinen yanlış pozitif mesajlarını hariç tut
+                exclude_regex = re.compile(r"might be valid but account not active|continuing attacking the account|can not connect|error|invalid|failed|denied", re.IGNORECASE)
+                basarili_satirlar = [s for s in basarili_satirlar if not exclude_regex.search(s)]
+                
+                # HTTP için ek filtreleme - sadece gerçek başarı satırlarını kabul et
+                if hydra_type in ("http-get", "https-get"):
+                    # HTTP'de genellikle "login: user password: pass" formatında olur
+                    # Ayrıca Hydra'nın özet bilgisini kontrol et
+                    if "valid password found" not in stdout_text.lower():
+                        basarili_satirlar = []  # Özet yoksa başarı yok
 
             if basarili_satirlar:
                 print(f"\n[+] {self.servis_adi.upper()} için başarılı girişler:")
