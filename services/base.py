@@ -4,7 +4,7 @@ from config import Ayarlar
 
 class BruteForceBase:
     VNC_ONLY_PASSWORD = ["vnc", "redis", "snmp", "adam6500", "oracle-listener", "s7-300", "cisco"]
-    HTTP_TYPES = ["http-get", "http-post", "https-get", "https-post"]
+    HTTP_TYPES = ["http-get", "https-get", "http-post-form", "https-post-form"]
 
     def __init__(self, hedef_ip, hedef_port, servis_adi):
         self.hedef_ip = hedef_ip
@@ -20,6 +20,13 @@ class BruteForceBase:
                 print("[!] SMTP sunucusunda AUTH desteği yok, brute-force başlatılmadı.")
                 self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "HATA", "SMTP AUTH desteklenmiyor")
                 return False
+        # HTTP Basic Auth kontrolü (yanlış pozitifleri azaltmak için)
+        hydra_type = self._hydra_tipi()
+        if hydra_type in ("http-get", "https-get") and not getattr(self, 'form_params', None):
+            if not self._http_basic_auth_kontrol():
+                print("[!] HTTP Basic Auth tespit edilmedi. http-get/https-get atlandı. Form tabanlı giriş için -F ile form spesifikasyonu sağlayın.")
+                self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "ATLANDI", "Basic Auth tespit edilmedi")
+                return False
         komut = self._komut_olustur(kullanici_listesi, sifre_listesi)
         print(f"[*] {self.servis_adi.upper()} saldırısı başlatılıyor...")
         print(f"[*] Hedef: {self.hedef_ip}:{self.hedef_port}")
@@ -27,16 +34,34 @@ class BruteForceBase:
             sonuc = subprocess.run(komut, capture_output=True, text=True, timeout=Ayarlar.HYDRA_TIMEOUT)
             print(f"[*] {self.servis_adi.upper()} sonuçları:")
             print("-" * 50)
-            if sonuc.stdout:
-                print(sonuc.stdout)
-            if sonuc.stderr:
-                print(f"[!] Hata çıktısı: {sonuc.stderr}")
-            if sonuc.returncode == 0 and "login:" in sonuc.stdout.lower():
-                basarili_satirlar = [satir for satir in sonuc.stdout.splitlines() if "login:" in satir.lower()]
+            stdout_text = sonuc.stdout or ""
+            stderr_text = sonuc.stderr or ""
+            if stdout_text:
+                print(stdout_text)
+            if stderr_text:
+                print(f"[!] Hata çıktısı: {stderr_text}")
+
+            import re
+            satirlar = stdout_text.splitlines()
+            basarili_satirlar = []
+
+            if hydra_type in self.VNC_ONLY_PASSWORD:
+                # Yalnızca parola ile doğrulanan modüller (ör. vnc)
+                pass_regex = re.compile(r"\bpassword\s*:\s*\S+", re.IGNORECASE)
+                basarili_satirlar = [s for s in satirlar if pass_regex.search(s)]
+                if not basarili_satirlar and re.search(r"valid (pair|password) found", stdout_text, re.IGNORECASE):
+                    # Başarı mesajı var ama tek satır yoksa, status mesajını kaydet
+                    basarili_satirlar = ["[INFO] valid password found"]
+            else:
+                # login ve password aynı satırda olmalı
+                lp_regex = re.compile(r"\b(login|user)\s*:\s*\S+.*\bpass(?:word)?\s*:\s*\S+", re.IGNORECASE)
+                basarili_satirlar = [s for s in satirlar if lp_regex.search(s)]
+
+            if basarili_satirlar:
                 print(f"\n[+] {self.servis_adi.upper()} için başarılı girişler:")
-                for satir in basarili_satirlar:
-                    print(f"    {satir.strip()}")
-                    self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "BAŞARILI", satir.strip())
+                for s in basarili_satirlar:
+                    print(f"    {s.strip()}")
+                    self.raporlayici.rapor_ekle(self.servis_adi, self.hedef_ip, self.hedef_port, "BAŞARILI", s.strip())
                 print("-" * 50)
                 return True
             else:
@@ -68,9 +93,14 @@ class BruteForceBase:
             komut.extend(["-p", self.tek_sifre])
         komut.append(self.hedef_ip)
         komut.append(hydra_type)
-        # HTTP/HTTPS için path
-        if hydra_type in self.HTTP_TYPES:
+        # HTTP/HTTPS için path veya form parametreleri
+        if hydra_type in ("http-get", "https-get"):
             komut.extend(["-m", getattr(self, 'http_path', "/")])
+        elif hydra_type in ("http-post-form", "https-post-form"):
+            form_spec = getattr(self, 'form_params', None)
+            if not form_spec:
+                raise ValueError("HTTP form brute-force için 'form_params' gereklidir (örn: /login:username=^USER^&password=^PASS^:F=Hatalı giriş)")
+            komut.append(form_spec)
         # Port
         if hasattr(self, 'port') and self.port:
             komut.extend(["-s", str(self.port)])
@@ -100,8 +130,6 @@ class BruteForceBase:
             komut.extend(["-b", self.log_file])
         if hasattr(self, 'xml_output') and self.xml_output:
             komut.append("-x")
-        if hasattr(self, 'form_params') and self.form_params:
-            komut.extend(["-F", self.form_params])
         if hasattr(self, 'custom_params') and self.custom_params:
             komut.extend(["-C", self.custom_params])
         if hasattr(self, 'module_path') and self.module_path:
@@ -128,4 +156,25 @@ class BruteForceBase:
             server.quit()
             return False
         except Exception:
+            return False
+
+    def _http_basic_auth_kontrol(self):
+        # Basic Auth gereksinimi var mı? 401 ve WWW-Authenticate başlığı beklenir
+        try:
+            path = getattr(self, 'http_path', '/') or '/'
+            if self._hydra_tipi() == 'https-get':
+                from http.client import HTTPSConnection
+                conn = HTTPSConnection(self.hedef_ip, self.hedef_port, timeout=5)
+            else:
+                from http.client import HTTPConnection
+                conn = HTTPConnection(self.hedef_ip, self.hedef_port, timeout=5)
+            conn.request('HEAD', path)
+            resp = conn.getresponse()
+            headers = {k.lower(): v for k, v in resp.getheaders()}
+            conn.close()
+            if resp.status == 401 and 'www-authenticate' in headers:
+                return True
+            return False
+        except Exception:
+            # Erişilemiyorsa, hydra zaten başarısız olacaktır; yanlış pozitif üretmemek için False dön
             return False

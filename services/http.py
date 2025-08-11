@@ -5,4 +5,7 @@ class HTTPBruteForce(BruteForceBase):
         super().__init__(hedef_ip, hedef_port, "HTTP")
 
     def _hydra_tipi(self):
+        # Form parametreleri sağlandıysa form brute kullan
+        if hasattr(self, 'form_params') and self.form_params:
+            return "http-post-form"
         return "http-get"

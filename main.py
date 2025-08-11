@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
 import os
 import socket
 import sys
+import shlex
 from services.scanner import NmapTarayici
 from services.port_checker import PortChecker
 from services.ftp import FTPBruteForce
@@ -125,6 +127,21 @@ def parametrik_giris_kontrol(giris):
 def hedef_ip_al():
     while True:
         giris = input("Hedef IP/Hostname girin (yardım için -h): ").strip()
+        
+        # Birleşik giriş desteği: "192.168.1.1 -h" gibi
+        if ' ' in giris:
+            try:
+                tokens = shlex.split(giris)
+            except Exception:
+                tokens = giris.split()
+            if len(tokens) >= 2:
+                hedef, parametreler = tokens[0], tokens[1:]
+                # Hedef geçerli mi?
+                if parametrik_giris_kontrol(hedef):
+                    return (hedef, parametreler)
+                else:
+                    print("[!] Geçersiz hedef formatı. Örnek: 192.168.1.1, 192.168.1.0/24, example.com")
+                    continue
         
         # Parametrik kontrol
         sonuc = parametrik_giris_kontrol(giris)
@@ -465,6 +482,19 @@ def main():
     if len(sys.argv) > 1:
         hedef_ip = sys.argv[1]
         
+        # Tek argüman verilmiş ama içinde parametreler var ise (örn: "192.168.1.1 -h") ayrıştır
+        if len(sys.argv) == 2 and (' ' in hedef_ip):
+            try:
+                tokens = shlex.split(hedef_ip)
+            except Exception:
+                tokens = hedef_ip.split()
+            if len(tokens) >= 2:
+                hedef_ip, parametreler = tokens[0], tokens[1:]
+                print(f"[+] Hedef: {hedef_ip}")
+                print(f"[+] Parametreler: {' '.join(parametreler)}")
+                parametrik_komut_isle(hedef_ip, parametreler)
+                return
+        
         # Eğer sadece IP verilmişse parametrik komut işle
         if len(sys.argv) > 2:
             parametreler = sys.argv[2:]
@@ -478,7 +508,17 @@ def main():
             
     else:
         # Etkileşimli mod
-        hedef_ip = hedef_ip_al()
+        hedef_giris = hedef_ip_al()
+        
+        # Interaktif modda birleşik giriş verilmişse (örn: "192.168.1.1 -h") doğrudan işle ve çık
+        if isinstance(hedef_giris, tuple):
+            hedef_ip, parametreler = hedef_giris
+            print(f"\n[+] Hedef: {hedef_ip}")
+            parametrik_komut_isle(hedef_ip, parametreler)
+            return
+        else:
+            hedef_ip = hedef_giris
+        
         print(f"\n[+] Hedef: {hedef_ip}")
         print("\nMod seçimi:")
         print("1. Port Check ile saldırı (varsayılan)")
