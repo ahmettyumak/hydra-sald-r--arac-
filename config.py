@@ -16,29 +16,7 @@ class Ayarlar:
     HYDRA_TIMEOUT = 300  # Büyük wordlistlerde zaman aşımını önlemek için artırıldı
     HYDRA_THREADS = 4
     
-    # FTP özel ayarları
-    FTP_TIMEOUT = 60      # FTP bağlantı timeout
-    FTP_THREADS = 1       # FTP tek thread (daha güvenilir)
-    
-    # Veritabanı servisleri özel ayarları
-    DB_TIMEOUT = 90       # Veritabanı bağlantı timeout
-    DB_THREADS = 2        # Veritabanı thread sayısı (daha düşük)
-    
-    # MySQL özel ayarları
-    MYSQL_TIMEOUT = 60    # MySQL bağlantı timeout
-    MYSQL_THREADS = 2     # MySQL thread sayısı
-    
-    # PostgreSQL özel ayarları
-    POSTGRESQL_TIMEOUT = 75   # PostgreSQL bağlantı timeout
-    POSTGRESQL_THREADS = 2    # PostgreSQL thread sayısı
-    
-    # MongoDB özel ayarları
-    MONGODB_TIMEOUT = 80      # MongoDB bağlantı timeout
-    MONGODB_THREADS = 1       # MongoDB tek thread (daha güvenilir)
-    
-    # MSSQL özel ayarları
-    MSSQL_TIMEOUT = 70        # MSSQL bağlantı timeout
-    MSSQL_THREADS = 2         # MSSQL thread sayısı
+    # Özel servis ayarları kaldırıldı - manuel hydra komutlarıyla uyumlu olması için
     
     # Port check ayarları
     PORT_CHECK_TIMEOUT = 3

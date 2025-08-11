@@ -135,34 +135,13 @@ class BruteForceBase:
             komut.extend(["-s", str(self.port)])
         else:
             komut.extend(["-s", str(self.hedef_port)])
-        # FTP için özel ayarlar
-        if hydra_type == "ftp":
-            # FTP için daha uzun timeout ve tek thread
-            komut.extend(["-W", "60"])  # 60 saniye bağlantı timeout
-            komut.extend(["-t", "1"])   # Tek thread (daha güvenilir)
-        # Veritabanı servisleri için özel ayarlar
-        elif hydra_type in ["mysql", "postgres", "mongodb", "mssql"]:
-            # Veritabanı servisleri için özel timeout ve thread ayarları
-            if hydra_type == "mysql":
-                komut.extend(["-W", str(Ayarlar.MYSQL_TIMEOUT)])
-                komut.extend(["-t", str(Ayarlar.MYSQL_THREADS)])
-            elif hydra_type == "postgres":
-                komut.extend(["-W", str(Ayarlar.POSTGRESQL_TIMEOUT)])
-                komut.extend(["-t", str(Ayarlar.POSTGRESQL_THREADS)])
-            elif hydra_type == "mongodb":
-                komut.extend(["-W", str(Ayarlar.MONGODB_TIMEOUT)])
-                komut.extend(["-t", str(Ayarlar.MONGODB_THREADS)])
-            elif hydra_type == "mssql":
-                komut.extend(["-W", str(Ayarlar.MSSQL_TIMEOUT)])
-                komut.extend(["-t", str(Ayarlar.MSSQL_THREADS)])
-        else:
-            # Thread
-            thread_sayisi = getattr(self, 'thread_sayisi', Ayarlar.HYDRA_THREADS)
-            komut.extend(["-t", str(thread_sayisi)])
-            # Timeout
-            timeout = getattr(self, 'timeout', Ayarlar.HYDRA_TIMEOUT)
-            if timeout != Ayarlar.HYDRA_TIMEOUT:
-                komut.extend(["-W", str(timeout)])
+        # Thread ve timeout ayarları
+        thread_sayisi = getattr(self, 'thread_sayisi', Ayarlar.HYDRA_THREADS)
+        komut.extend(["-t", str(thread_sayisi)])
+        # Timeout
+        timeout = getattr(self, 'timeout', Ayarlar.HYDRA_TIMEOUT)
+        if timeout != Ayarlar.HYDRA_TIMEOUT:
+            komut.extend(["-W", str(timeout)])
         # Diğer parametreler
         if hasattr(self, 'verbose') and self.verbose:
             komut.append("-V")
