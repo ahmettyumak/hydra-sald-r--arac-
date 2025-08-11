@@ -16,6 +16,10 @@ class Ayarlar:
     HYDRA_TIMEOUT = 30
     HYDRA_THREADS = 4
     
+    # Port check ayarları
+    PORT_CHECK_TIMEOUT = 3
+    PORT_CHECK_THREADS = 50
+    
     # Port ayarları
     PORTLAR = {
         "ftp": 21,
