@@ -27,17 +27,17 @@ def giris_ekrani():
     print("=" * 60)
     print("GELİŞMİŞ BRUTE-FORCE SALDIRI ARACI".center(60))
     print("=" * 60)
-    print(f"Versiyon: 3.0 | Parametrik Giriş | Port Check | Console Output\n")
+    print(f"Versiyon: 4.0 | Parametrik Giriş | Port Check | Console Output\n")
     print("💡 İpucu: -h yazarak yardım alabilirsiniz!")
     print("💡 Kullanım: Sadece IP ve parametreleri yazın!")
     print("💡 Örnekler:")
+    print("   192.168.1.1  (port check + brute force)")
     print("   192.168.1.1 -h  (tüm servisler)")
     print("   192.168.1.1 -s ssh -t 8  (SSH, 8 thread)")
     print("   192.168.1.1 -s ftp -L users.txt -P pass.txt  (özel wordlist)")
     print("   192.168.1.1 -s http -V -f  (HTTP, verbose, first found)")
     print("   192.168.1.1 -s ssh -l admin -p password123  (tek kullanıcı/şifre)")
     print("   192.168.1.1 -n  (nmap taraması)")
-    print("   192.168.1.1  (port check)")
     print("=" * 60)
 
 def gecerli_ip_girisi(ip):
@@ -526,26 +526,11 @@ def main():
         else:
             hedef_ip = hedef_giris
         
+        # Sadece IP verilmişse port check yap
         print(f"\n[+] Hedef: {hedef_ip}")
-        print("\nMod seçimi:")
-        print("1. Port Check ile saldırı (varsayılan)")
-        print("2. Nmap ile detaylı tarama")
-        print("3. Tüm servislere saldırı")
-        print("4. Belirli servis seçimi")
-        
-        secim = input("\nMod seçin (1-4, varsayılan: 1): ").strip() or "1"
-        
+        print(f"[+] Port check ile saldırı başlatılıyor...")
         raporlayici = Raporlayici()
-        
-        if secim == "2":
-            nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
-        elif secim == "3":
-            tum_servislere_saldiri(hedef_ip, raporlayici)
-        elif secim == "4":
-            servis_adi = input("Servis adı girin (örn: ssh): ").strip().lower()
-            belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici)
-        else:
-            port_check_ve_saldiri(hedef_ip, raporlayici)
+        port_check_ve_saldiri(hedef_ip, raporlayici)
 
 if __name__ == "__main__":
     main()
