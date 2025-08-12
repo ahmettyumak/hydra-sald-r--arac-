@@ -28,17 +28,39 @@ def giris_ekrani():
     print("GELİŞMİŞ BRUTE-FORCE SALDIRI ARACI".center(60))
     print("=" * 60)
     print(f"Versiyon: 4.0 | Parametrik Giriş | Port Check | Console Output\n")
-    print("💡 İpucu: -h yazarak yardım alabilirsiniz!")
+    print("💡 İpucu: Yardım için --help yazabilirsiniz!")
     print("💡 Kullanım: Sadece IP ve parametreleri yazın!")
     print("💡 Örnekler:")
     print("   192.168.1.1  (port check + brute force)")
-    print("   192.168.1.1 -h  (tüm servisler)")
+    print("   192.168.1.1 -h  (tüm servislere saldırı)")
     print("   192.168.1.1 -s ssh -t 8  (SSH, 8 thread)")
     print("   192.168.1.1 -s ftp -L users.txt -P pass.txt  (özel wordlist)")
     print("   192.168.1.1 -s http -V -f  (HTTP, verbose, first found)")
     print("   192.168.1.1 -s ssh -l admin -p password123  (tek kullanıcı/şifre)")
     print("   192.168.1.1 -n  (nmap taraması)")
     print("=" * 60)
+
+
+def yazdir_yardim():
+    print("\n" + "="*60)
+    print("KULLANIM YARDIMI".center(60))
+    print("="*60)
+    print("Kullanım örnekleri:")
+    print("  python main.py 192.168.1.1 -h")
+    print("  python main.py 192.168.1.1 -s ssh -t 8")
+    print("  python main.py 192.168.1.1 -n")
+    print("\nParametreler:")
+    print("  --help, -? , help: Bu yardım mesajını gösterir")
+    print("  -h: Tüm servislere saldırı (port check ile açık olanlara)")
+    print("  -s [servis]: Belirli servise saldır (ör: -s ssh) [port check YAPMAZ]")
+    print("  -n: Nmap taraması")
+    print("\nHydra Parametreleri (opsiyonel):")
+    print("  -L [dosya], -P [dosya], -l [kullanıcı], -p [şifre], -t [sayı], -W [sn]")
+    print("  -V, -d, -f, -R, -o [dosya], -b [dosya], -x, -F [form], -C [dosya]")
+    print("\nNotlar:")
+    print("  - Nmap haricindeki tüm modlarda port check yapılır, kapalı portlar atlanır.")
+    print("  - -s ile servis verilirse port check atlanır ve doğrudan saldırı başlar.")
+    print("="*60)
 
 def gecerli_ip_girisi(ip):
     try:
@@ -52,7 +74,7 @@ def parametrik_giris_kontrol(giris):
     giris = giris.strip()
     
     # Yardım parametresi
-    if giris.lower() in ['-h', '--help', 'help', 'yardım']:
+    if giris.lower() in ['-h', '--help', 'help', 'yardım', '-?', '?']:
         print("\n" + "="*60)
         print("PARAMETRİK GİRİŞ YARDIMI".center(60))
         print("="*60)
@@ -593,6 +615,11 @@ def main():
         print("    python main.py 192.168.1.1 -h")
         print("    python main.py 192.168.1.1 -s ssh -t 8")
         print("    python main.py 192.168.1.1 -n")
+        return
+    
+    # Yardım bayrakları
+    if any(arg in ("--help", "-?", "help") for arg in sys.argv[1:]):
+        yazdir_yardim()
         return
     
     # Argümanları topla
