@@ -715,6 +715,25 @@ def main():
         
         return
 
+    # -h veya -nmap modu kontrolü (önce yapılmalı)
+    if '-h' in tokens:
+        if len(positional) < 1:
+            print("[!] Eksik parametre. Kullanım: -h target")
+            print("Örnek: -h 192.168.1.1")
+            return
+        target = tokens[positional[0]]
+        parametrik_komut_isle(target, ['-h'])
+        return
+
+    if '-nmap' in tokens:
+        if len(positional) < 1:
+            print("[!] Eksik parametre. Kullanım: -nmap target")
+            print("Örnek: -nmap 192.168.1.1")
+            return
+        target = tokens[positional[0]]
+        parametrik_komut_isle(target, ['-nmap'])
+        return
+
     # Hydra söz dizimi: [OPTIONS] target service
     # En az 2 pozisyonel token gerekli: target ve service
     if len(positional) < 2:
@@ -723,21 +742,13 @@ def main():
         print("       -t 8 -V 192.168.1.1 ftp")
         print("       -s 2222 192.168.1.1 ssh")
         print("       -L logins.txt -P pws.txt -M targets.txt ssh")
+        print("       -h 192.168.1.1")
+        print("       -nmap 192.168.1.1")
         return
 
     # Pozisyonel tokenlar: target ve service
     target = tokens[positional[0]]
     service = tokens[positional[1]].lower()
-
-    # -nmap modu: bayrak olarak verildiyse
-    if '-nmap' in tokens:
-        parametrik_komut_isle(target, ['-nmap'])
-        return
-
-    # -h modu: -h verildiyse
-    if '-h' in tokens:
-        parametrik_komut_isle(target, ['-h'])
-        return
 
     # Belirli servis modu: [OPTIONS] target service
     # Tüm bayrakları topla (target ve service hariç)
