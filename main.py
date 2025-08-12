@@ -23,6 +23,12 @@ from services.mongodb import MongoDBBruteForce
 from utils.raporlayici import Raporlayici
 from config import Ayarlar
 
+class Colors:
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    ENDC = '\033[0m'
+
 def giris_ekrani():
     print("=" * 60)
     print("GELİŞMİŞ BRUTE-FORCE SALDIRI ARACI".center(60))
@@ -45,21 +51,22 @@ def yazdir_yardim():
     print("KULLANIM YARDIMI".center(60))
     print("="*60)
     print("Söz Dizimi:")
-    print("  [OPTIONS] service://server[:PORT]")
+    print("  [OPTIONS] target service")
     print("  [OPTIONS] -M targets.txt service")
     print("\nÖrnekler:")
-    print("  -L wordlists/users.txt -P wordlists/pass.txt ftp://192.168.9.131")
-    print("  -t 8 -V ssh://192.168.1.1")
+    print("  -L wordlists/users.txt -P wordlists/pass.txt 192.168.9.131 ssh")
+    print("  -t 8 -V 192.168.1.1 ftp")
     print("  -h 192.168.1.1")
     print("  -nmap 192.168.1.1")
-    print("  -s 2222 ssh://192.168.1.1")
-    print("  -F '/login:username=^USER^&password=^PASS^:F=Invalid' http://192.168.1.1")
+    print("  -s 2222 192.168.1.1 ssh")
+    print("  -F '/login:username=^USER^&password=^PASS^:F=Invalid' 192.168.1.1 http")
     print("  -L logins.txt -P pws.txt -M targets.txt ssh")
     print("\nParametreler:")
     print("  --help, -?, help: Bu yardım mesajını gösterir")
     print("  -h <target>: Tüm desteklenen servislere saldır (port check ile açık olanlara)")
     print("  -nmap <target>: Nmap taraması")
-    print("  service://server[:PORT]: Belirli servise saldır (ör: ftp://192.168.1.1)")
+    print("  target: Hedef IP adresi, hostname veya ağ aralığı")
+    print("  service: Servis adı (ssh, ftp, http, mysql, vb.)")
     print("  -M targets.txt: Çoklu hedef dosyası (her satırda bir hedef)")
     print("  -s <port>: Port numarası belirt (örn: -s 2222) - OPSİYONEL")
     print("\nHydra Parametreleri (opsiyonel):")
@@ -82,14 +89,13 @@ def yazdir_yardim():
     print("  -M [dosya]: Çoklu hedef dosyası")
     print("  -m [servis]: Servis adı")
     print("\nNotlar:")
-    print("  - Hydra söz dizimi: [OPTIONS] service://server[:PORT]")
+    print("  - Hydra söz dizimi: [OPTIONS] target service")
     print("  - Çoklu hedef: -M targets.txt service (her satırda bir hedef)")
-    print("  - Port belirtimi opsiyonel: ftp://192.168.1.1 veya ftp://192.168.1.1:2121")
+    print("  - Port belirtimi: -s parametresi ile (örn: -s 2222)")
     print("  - -h ile 'tümü' modu: açık servisler listelenir ve saldırı başlatılır")
     print("  - Belirli servis verildiğinde port check yapılmaz, doğrudan saldırı başlar")
-    print("  - server: IP adresi, hostname veya ağ aralığı")
+    print("  - target: IP adresi, hostname veya ağ aralığı")
     print("  - service: Desteklenen servis adı (ssh, ftp, http, mysql, vb.)")
-    print("  - PORT: Opsiyonel port numarası (varsayılan port yerine)")
     print("  - targets.txt: Her satırda bir hedef (IP, hostname veya ağ aralığı)")
     print("="*60)
 
@@ -425,23 +431,24 @@ def belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici):
         except Exception as e:
             print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
 
-def parametrik_komut_isle(hedef_ip, parametreler):
-    """Parametrik komut satırı girişini işler"""
+def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
     print(f"[+] Hedef: {hedef_ip}")
-    print(f"[+] Parametreler: {' '.join(parametreler)}")
-    
-    # Parametreleri analiz et
+    if parametreler:
+        print(f"[+] Parametreler: {' '.join(parametreler)}")
+    if servis_arg:
+        print(f"[+] Belirtilen Servis: {servis_arg.upper()}")
+
     servisler = []
     hydra_parametreleri = {}
     nmap_yapilacak = False
     servisler_explicit = False  # Servis belirtildi mi?
     tum_servisler = False       # -h ile tüm servisler mi istendi?
     custom_port = None          # -s ile özel port belirtildi mi?
-    
+
     i = 0
     while i < len(parametreler):
         param = parametreler[i]
-        
+
         # Port belirtimi (-s) - OPSİYONEL
         if param == "-s" and i + 1 < len(parametreler):
             port_value = parametreler[i + 1]
@@ -457,10 +464,10 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             
         # Tüm servisler (-h)
         elif param == "-h":
-            servisler = list(Ayarlar.PORTLAR.keys())
             tum_servisler = True
+            servisler = list(Ayarlar.PORTLAR.keys())
             i += 1
-            
+
         # Nmap taraması (-nmap)
         elif param == "-nmap":
             nmap_yapilacak = True
@@ -468,7 +475,7 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             raporlayici = Raporlayici()
             nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
             return
-            
+        
         # Servis belirtimi (pozisyonel parametre olarak)
         elif not param.startswith('-') and param.lower() in Ayarlar.PORTLAR:
             servisler.append(param.lower())
@@ -476,74 +483,69 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             i += 1
             
         # Hydra parametreleri
-        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-s", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
-            if i + 1 < len(parametreler):
-                hydra_parametreleri[param] = parametreler[i + 1]
-                print(f"[+] Hydra parametresi: {param} {parametreler[i + 1]}")
-                i += 2
-            else:
-                print(f"[!] {param} parametresi için değer eksik")
-                i += 1
-                
-        # Boolean parametreler
-        elif param in ["-V", "-d", "-f", "-R", "-x"]:
-            hydra_parametreleri[param] = True
-            print(f"[+] Hydra parametresi: {param}")
-            i += 1
-            
-        # Özel parametreler (-- ile başlayan)
-        elif param.startswith("--"):
-            if i + 1 < len(parametreler) and not parametreler[i + 1].startswith("-"):
-                hydra_parametreleri[param] = parametreler[i + 1]
-                print(f"[+] Özel parametre: {param} {parametreler[i + 1]}")
-                i += 2
-            else:
+        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+            if param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-F", "-C", "-M", "-m"]: # Değer alan parametreler
+                if i + 1 < len(parametreler):
+                    hydra_parametreleri[param] = parametreler[i + 1]
+                    i += 2
+                else:
+                    print(f"[!] Hata: {param} parametresi için değer eksik.")
+                    i += 1 # Hatalı parametreyi atla
+            else: # Değer almayan parametreler (-R)
                 hydra_parametreleri[param] = True
-                print(f"[+] Özel parametre: {param}")
                 i += 1
-                
-        # Bilinmeyen parametreler
         else:
-            print(f"[!] Bilinmeyen parametre: {param}")
+            print(f"[!] Bilinmeyen veya geçersiz parametre atlanıyor: {param}")
             i += 1
-    
-    # Servis belirtildiyse ve -h kullanılmadıysa port check atlanacak
-    skip_port_check = servisler_explicit and not tum_servisler
-    
-    # Eğer servis belirtilmemişse port check ile tespit et
-    if not servisler and not skip_port_check:
+
+    # Eğer servisler listesi boşsa ve -h veya -nmap de yoksa, parametreler listesinin ilk elemanını servis olarak dene
+    if not servisler and not tum_servisler and not nmap_yapilacak and parametreler and parametreler[0].lower() in Ayarlar.PORTLAR:
+        servisler.append(parametreler[0].lower())
+        servisler_explicit = True
+
+    # Eğer ne -h ne de servis belirtilmişse ve nmap de istenmiyorsa, port check yap
+    if not servisler and not nmap_yapilacak and not tum_servisler:
         print(f"[+] Port check ile servis tespiti yapılıyor...")
         port_checker = PortChecker(hedef_ip)
-        _ = port_checker.servis_portlarini_tara()
-        acik_servisler_pc = port_checker.acik_servisleri_getir()
-        servisler = list(acik_servisler_pc.keys())
+        acik_portlar = port_checker.servis_portlarini_tara()
+        acik_servisler = port_checker.acik_servisleri_getir()
+        servisler = list(acik_servisler.keys())
         
         if not servisler:
             print("[-] Açık servis bulunamadı!")
             return
     
+    # Eğer -h ile tüm servisler istendiyse, desteklenen tüm servisleri listele
+    if tum_servisler:
+        print(f"\n[*] Uygulama tarafından desteklenen toplam {len(Ayarlar.PORTLAR)} servis:")
+        for s_name, s_port in Ayarlar.PORTLAR.items():
+            print(f"    - {s_name.upper()} (Port {s_port})")
+        print("-" * 50)
+
+    if not servisler:
+        print(f"[!] Saldırılacak servis bulunamadı. Lütfen target service formatında belirtin veya -h kullanın.")
+        return
+
     print(f"[+] Saldırılacak servisler: {', '.join(servisler).upper()}")
     
+    # Her servis için port check yap (Nmap modu hariç ve servis açıkça belirtilmediyse)
     acik_servisler = {}
-    if skip_port_check:
-        # Port check YAPMA, doğrudan servis listesi ile devam et
+    if not nmap_yapilacak and not servisler_explicit:
         for servis_adi in servisler:
-            # Özel port belirtildiyse onu kullan, yoksa varsayılan port
-            if custom_port is not None:
-                acik_servisler[servis_adi] = custom_port
-            else:
-                acik_servisler[servis_adi] = Ayarlar.PORTLAR[servis_adi]
-    else:
-        # Her servis için port check yap
-        for servis_adi in servisler:
-            port = Ayarlar.PORTLAR[servis_adi]
+            port = Ayarlar.PORTLAR.get(servis_adi) # Varsayılan port
+            if custom_port is not None: # Eğer özel port belirtildiyse onu kullan
+                port = custom_port
+            
+            if port is None: # Eğer servis adı bilinmiyorsa ve özel port da yoksa atla
+                print(f"[!] {servis_adi.upper()} için varsayılan port bulunamadı ve özel port belirtilmedi. Atlanıyor.")
+                continue
+            
             print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
             
-            # Port check yap
             try:
                 import socket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
+                sock.settimeout(Ayarlar.PORT_CHECK_TIMEOUT)
                 result = sock.connect_ex((hedef_ip, port))
                 sock.close()
                 
@@ -555,42 +557,33 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             except Exception as e:
                 print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
                 continue
-    
-    if not acik_servisler:
-        print("[-] Hiçbir servis portu açık değil!")
+    elif servisler_explicit: # Servis açıkça belirtildiyse (target service ile), port check yapma, doğrudan servis listesi ile devam et
+        for servis_adi in servisler:
+            # Özel port belirtildiyse onu kullan, yoksa varsayılan port
+            if custom_port is not None:
+                acik_servisler[servis_adi] = custom_port
+            else:
+                acik_servisler[servis_adi] = Ayarlar.PORTLAR[servis_adi]
+    else: # Nmap yapılıyorsa, acik_servisler boş kalır, nmap_tarama_ve_saldiri zaten kendi içinde servisleri bulur
+        pass
+
+    if not acik_servisler and not nmap_yapilacak:
+        print("[-] Hiçbir servis portu açık değil veya saldırı için uygun servis bulunamadı!")
         return
     
-    # Servis sınıfları eşleme (desteklenen servisler)
-    servis_esleme = {
-        'ftp': FTPBruteForce,
-        'ssh': SSHBruteForce,
-        'http': HTTPBruteForce,
-        'https': HTTPSBruteForce,
-        'mysql': MySQLBruteForce,
-        'postgresql': PostgreSQLBruteForce,
-        'mongodb': MongoDBBruteForce,
-        'smtp': SMTPBruteForce,
-        'pop3': POP3BruteForce,
-        'imap': IMAPBruteForce,
-        'rdp': RDPBruteForce,
-        'smb': SMBBruteForce,
-        'telnet': TelnetBruteForce,
-        'vnc': VNCBruteForce,
-        'mssql': MSSQLBruteForce
-    }
+    if acik_servisler:
+        print(f"\n[+] Brute-force yapılacak açık servisler ({len(acik_servisler)} adet):")
+        for s_name, s_port in acik_servisler.items():
+            print(f"    - {s_name.upper()} (Port {s_port})")
+        print("-" * 50)
 
-    # -h modunda: önce desteklenenlerin tamamını, sonra bu hedefte saldırılabilecekleri listele
-    if tum_servisler:
-        desteklenen = list(servis_esleme.keys())
-        print(f"\n[+] Bu araç toplam {len(desteklenen)} servisi destekliyor:")
-        print("    " + ", ".join(s.upper() for s in desteklenen))
-        print(f"[+] Bu hedefte brute force yapılabilecek servisler ({len(acik_servisler)}):")
-        for s, p in acik_servisler.items():
-            print(f"    - {s.upper()} (port {p})")
-        print("[+] Başlatılıyor...\n")
-    else:
-        if not skip_port_check:
-            print(f"\n[+] Açık servisler: {', '.join(acik_servisler.keys()).upper()}")
+    # Servis sınıfları eşleme
+    servis_esleme = {
+        'ftp': FTPBruteForce, 'ssh': SSHBruteForce, 'http': HTTPBruteForce, 'https': HTTPSBruteForce,
+        'mysql': MySQLBruteForce, 'postgresql': PostgreSQLBruteForce, 'mongodb': MongoDBBruteForce,
+        'smtp': SMTPBruteForce, 'pop3': POP3BruteForce, 'imap': IMAPBruteForce, 'rdp': RDPBruteForce,
+        'smb': SMBBruteForce, 'telnet': TelnetBruteForce, 'vnc': VNCBruteForce, 'mssql': MSSQLBruteForce
+    }
     
     # Varsayılan değerler
     kullanici_listesi = hydra_parametreleri.get('-L', Ayarlar.KULLANICI_ADI_LISTESI)
@@ -606,42 +599,24 @@ def parametrik_komut_isle(hedef_ip, parametreler):
                 
                 # Hydra parametrelerini uygula
                 for param, value in hydra_parametreleri.items():
-                    if param == '-t':
-                        saldiri.thread_sayisi = int(value)
-                    elif param == '-W':
-                        saldiri.timeout = int(value)
-                    elif param == '-L':
-                        saldiri.kullanici_listesi = value
-                    elif param == '-P':
-                        saldiri.sifre_listesi = value
-                    elif param == '-l':
-                        saldiri.tek_kullanici = value
-                    elif param == '-p':
-                        saldiri.tek_sifre = value
-                    elif param == '-s':
-                        saldiri.port = int(value)
-                    elif param == '-V':
-                        saldiri.verbose = True
-                    elif param == '-d':
-                        saldiri.debug = True
-                    elif param == '-f':
-                        saldiri.first_found = True
-                    elif param == '-R':
-                        saldiri.restore = True
-                    elif param == '-o':
-                        saldiri.output_file = value
-                    elif param == '-b':
-                        saldiri.log_file = value
-                    elif param == '-x':
-                        saldiri.xml_output = True
-                    elif param == '-F':
-                        saldiri.form_params = value
-                    elif param == '-C':
-                        saldiri.custom_params = value
-                    elif param == '-M':
-                        saldiri.module_path = value
-                    elif param == '-m':
-                        saldiri.service_name = value
+                    if param == '-t': saldiri.thread_sayisi = int(value)
+                    elif param == '-W': saldiri.timeout = int(value)
+                    elif param == '-L': saldiri.kullanici_listesi = value
+                    elif param == '-P': saldiri.sifre_listesi = value
+                    elif param == '-l': saldiri.tek_kullanici = value
+                    elif param == '-p': saldiri.tek_sifre = value
+                    elif param == '-s': saldiri.port = int(value)
+                    elif param == '-V': saldiri.verbose = True
+                    elif param == '-d': saldiri.debug = True
+                    elif param == '-f': saldiri.first_found = True
+                    elif param == '-R': saldiri.restore = True
+                    elif param == '-o': saldiri.output_file = value
+                    elif param == '-b': saldiri.log_file = value
+                    elif param == '-x': saldiri.xml_output = True
+                    elif param == '-F': saldiri.form_params = value
+                    elif param == '-C': saldiri.custom_params = value
+                    elif param == '-M': saldiri.module_path = value
+                    elif param == '-m': saldiri.service_name = value
                 
                 saldiri.saldir(kullanici_listesi, sifre_listesi)
             except Exception as e:
@@ -654,14 +629,14 @@ def main():
     for dir in ["wordlists", "reports", "sonuclar"]:
         os.makedirs(dir, exist_ok=True)
     
-    # Argüman yoksa örnekleri göster (banner yok)
+    # Argüman yoksa örnekleri göster
     if len(sys.argv) == 1:
         print("Örnekler (Hydra benzeri):")
-        print("  -L wordlists/users.txt -P wordlists/pass.txt ftp://192.168.9.131")
-        print("  -t 8 -V ssh://192.168.1.1")
+        print("  -L wordlists/users.txt -P wordlists/pass.txt 192.168.9.131 ssh")
+        print("  -t 8 -V 192.168.1.1 ftp")
         print("  -h 192.168.1.1")
         print("  -nmap 192.168.1.1")
-        print("  -s 2222 ssh://192.168.1.1")
+        print("  -s 2222 192.168.1.1 ssh")
         print("  -L logins.txt -P pws.txt -M targets.txt ssh")
         print("Yardım: --help")
         return
@@ -740,69 +715,33 @@ def main():
         
         return
 
-    # Hydra söz dizimi: [OPTIONS] service://server[:PORT]
-    # En az 1 pozisyonel token gerekli: service://server[:PORT]
-    if len(positional) < 1:
-        print("[!] Eksik parametre. Kullanım: [OPTIONS] service://server[:PORT]")
-        print("Örnek: -L users.txt -P pass.txt ftp://192.168.1.1")
-        print("       -t 8 -V ssh://192.168.1.1")
-        print("       -s 2222 ssh://192.168.1.1")
+    # Hydra söz dizimi: [OPTIONS] target service
+    # En az 2 pozisyonel token gerekli: target ve service
+    if len(positional) < 2:
+        print("[!] Eksik parametre. Kullanım: [OPTIONS] target service")
+        print("Örnek: -L users.txt -P pass.txt 192.168.1.1 ssh")
+        print("       -t 8 -V 192.168.1.1 ftp")
+        print("       -s 2222 192.168.1.1 ssh")
         print("       -L logins.txt -P pws.txt -M targets.txt ssh")
         return
 
-    # Son pozisyonel token: service://server[:PORT]
-    service_target = tokens[positional[-1]]
+    # Pozisyonel tokenlar: target ve service
+    target = tokens[positional[0]]
+    service = tokens[positional[1]].lower()
 
     # -nmap modu: bayrak olarak verildiyse
     if '-nmap' in tokens:
-        # Nmap için sadece hedef IP'yi al
-        if '://' in service_target:
-            target = service_target.split('://')[1].split(':')[0].split('/')[0]
-        else:
-            target = service_target
         parametrik_komut_isle(target, ['-nmap'])
         return
 
     # -h modu: -h verildiyse
     if '-h' in tokens:
-        # -h için sadece hedef IP'yi al
-        if '://' in service_target:
-            target = service_target.split('://')[1].split(':')[0].split('/')[0]
-        else:
-            target = service_target
         parametrik_komut_isle(target, ['-h'])
         return
 
-    # Servis ve hedef ayrıştırma
-    if '://' not in service_target:
-        print("[!] Geçersiz format. Kullanım: service://server[:PORT]")
-        print("Örnek: ftp://192.168.1.1, ssh://192.168.1.1:2222")
-        return
-
-    service_part, target_part = service_target.split('://', 1)
-    service = service_part.lower()
-    
-    # Port ve hedef ayrıştırma
-    if ':' in target_part:
-        target, port_str = target_part.split(':', 1)
-        if '/' in port_str:
-            port_str = port_str.split('/')[0]
-        try:
-            port = int(port_str)
-        except ValueError:
-            print(f"[!] Geçersiz port: {port_str}")
-            return
-    else:
-        target = target_part.split('/')[0] if '/' in target_part else target_part
-        port = None
-
-    # Belirli servis modu: [OPTIONS] service://server[:PORT]
-    # Tüm bayrakları topla (service://server[:PORT] hariç)
+    # Belirli servis modu: [OPTIONS] target service
+    # Tüm bayrakları topla (target ve service hariç)
     option_tokens = [tok for idx, tok in enumerate(tokens) if idx not in positional]
-    
-    # Port belirtildiyse -s parametresi olarak ekle
-    if port is not None:
-        option_tokens = ['-s', str(port)] + option_tokens
     
     # Servis adını pozisyonel parametre olarak ekle
     parametreler = [service] + option_tokens
