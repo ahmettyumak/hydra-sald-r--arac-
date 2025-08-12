@@ -29,15 +29,14 @@ def giris_ekrani():
     print("=" * 60)
     print(f"Versiyon: 4.0 | Parametrik Giriş | Port Check | Console Output\n")
     print("💡 İpucu: Yardım için --help yazabilirsiniz!")
-    print("💡 Kullanım: Sadece IP ve parametreleri yazın!")
+    print("💡 Söz dizimi: [parametreler] <host>")
     print("💡 Örnekler:")
-    print("   192.168.1.1  (port check + brute force)")
-    print("   192.168.1.1 -h  (tüm servislere saldırı)")
-    print("   192.168.1.1 -s ssh -t 8  (SSH, 8 thread)")
-    print("   192.168.1.1 -s ftp -L users.txt -P pass.txt  (özel wordlist)")
-    print("   192.168.1.1 -s http -V -f  (HTTP, verbose, first found)")
-    print("   192.168.1.1 -s ssh -l admin -p password123  (tek kullanıcı/şifre)")
-    print("   192.168.1.1 -n  (nmap taraması)")
+    print("   -h 192.168.1.1                    (tüm servislere saldırı)")
+    print("   -s ssh -t 8 192.168.1.1           (SSH, 8 thread)")
+    print("   -s ftp -L users.txt -P pass.txt 192.168.1.1")
+    print("   -s http -V -f 192.168.1.1         (HTTP, verbose, first found)")
+    print("   -s ssh -l admin -p pass 192.168.1.1")
+    print("   -n 192.168.1.1                     (nmap taraması)")
     print("=" * 60)
 
 
@@ -45,19 +44,21 @@ def yazdir_yardim():
     print("\n" + "="*60)
     print("KULLANIM YARDIMI".center(60))
     print("="*60)
-    print("Kullanım örnekleri:")
-    print("  python main.py 192.168.1.1 -h")
-    print("  python main.py 192.168.1.1 -s ssh -t 8")
-    print("  python main.py 192.168.1.1 -n")
+    print("Söz dizimi: python main.py [parametreler] <host>")
+    print("Örnekler:")
+    print("  python main.py -h 192.168.1.1")
+    print("  python main.py -s ssh -t 8 192.168.1.1")
+    print("  python main.py -nmap 192.168.1.1")
     print("\nParametreler:")
     print("  --help, -? , help: Bu yardım mesajını gösterir")
     print("  -h: Tüm servislere saldırı (port check ile açık olanlara)")
     print("  -s [servis]: Belirli servise saldır (ör: -s ssh) [port check YAPMAZ]")
-    print("  -n: Nmap taraması")
+    print("  -nmap: Nmap taraması")
     print("\nHydra Parametreleri (opsiyonel):")
     print("  -L [dosya], -P [dosya], -l [kullanıcı], -p [şifre], -t [sayı], -W [sn]")
     print("  -V, -d, -f, -R, -o [dosya], -b [dosya], -x, -F [form], -C [dosya]")
     print("\nNotlar:")
+    print("  - Host (IP/Hostname) en sonda verilir.")
     print("  - Nmap haricindeki tüm modlarda port check yapılır, kapalı portlar atlanır.")
     print("  - -s ile servis verilirse port check atlanır ve doğrudan saldırı başlar.")
     print("="*60)
@@ -426,8 +427,8 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             tum_servisler = True
             i += 1
             
-        # Nmap taraması (-n)
-        elif param == "-n":
+        # Nmap taraması (-nmap)
+        elif param == "-nmap":
             nmap_yapilacak = True
             print(f"[+] Nmap taraması başlatılıyor...")
             raporlayici = Raporlayici()
@@ -603,18 +604,20 @@ def parametrik_komut_isle(hedef_ip, parametreler):
                 print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
                 continue
 
+
 def main():
     # Dizinleri oluştur
     for dir in ["wordlists", "reports", "sonuclar"]:
         os.makedirs(dir, exist_ok=True)
     
-    # Komut satırı parametreleri kontrolü (input yok)
+    # Argüman yoksa gereksinimleri göster (banner yok)
     if len(sys.argv) == 1:
-        giris_ekrani()
-        print("[!] Bir host ve parametre giriniz. Örnekler:")
-        print("    python main.py 192.168.1.1 -h")
-        print("    python main.py 192.168.1.1 -s ssh -t 8")
-        print("    python main.py 192.168.1.1 -n")
+        print("Kullanım: python main.py [parametreler] <host>")
+        print("Örnekler:")
+        print("  python main.py -h 192.168.1.1")
+        print("  python main.py -s ssh -t 8 192.168.1.1")
+        print("  python main.py -nmap 192.168.1.1")
+        print("Yardım: --help")
         return
     
     # Yardım bayrakları
@@ -622,34 +625,59 @@ def main():
         yazdir_yardim()
         return
     
-    # Argümanları topla
     tokens = sys.argv[1:]
-    
-    # İlk argüman host mu?
-    if tokens[0].startswith('-'):
-        print("[!] Host eksik. Bir host belirtiniz. Örnek: 192.168.1.1 -h")
+
+    # Bayraklardan sonra değer bekleyen parametreler
+    flags_with_values = {"-s", "-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-F", "-C", "-M", "-m"}
+
+    # Tüm tokenları tarayarak hangi indekslerin değer olarak tüketildiğini işaretle
+    consumed_value_indexes = set()
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok in flags_with_values and (i + 1) < len(tokens):
+            consumed_value_indexes.add(i + 1)
+            i += 2
+        else:
+            i += 1
+
+    # Host olarak kabul edilecek aday: sondan ilk, '-' ile başlamayan ve değer olarak tüketilmemiş token
+    host_index = None
+    for idx in range(len(tokens) - 1, -1, -1):
+        if not tokens[idx].startswith('-') and idx not in consumed_value_indexes:
+            host_index = idx
+            break
+
+    if host_index is None:
+        print("[!] Host eksik. Bir host belirtiniz. Örnek: python main.py -h 192.168.1.1")
         return
-    
-    hedef_ip = tokens[0]
-    
+
+    hedef_ip = tokens[host_index]
+
+    # Parametreler: host hariç kalan tokenlar
+    parametreler = tokens[:host_index] + tokens[host_index+1:]
+
     # Sadece host verilmişse
-    if len(tokens) == 1:
+    if len(parametreler) == 0:
         print("[!] Parametre eksik. Bir parametre belirtiniz. Örnek: -h veya -s ssh")
         return
-    
-    parametreler = tokens[1:]
-    
-    # Eğer tek parametre -h ise: host + -h -> tüm servisler (port check ile listele ve saldır)
+
+    # Eğer tek parametre -h ise: -h <ip> -> tüm servisler (port check ile listele ve saldır)
     if len(parametreler) == 1 and parametreler[0] == '-h':
         print("[+] Tüm servisler listeleniyor (açık olanlara saldırılacak)...")
         parametrik_komut_isle(hedef_ip, ['-h'])
         return
-    
-    # Eğer <ip> -s ssh ... ise: port check olmadan doğrudan ilgili servise saldır
+
+    # Eğer -nmap belirtilmişse
+    if '-nmap' in parametreler:
+        parametrik_komut_isle(hedef_ip, ['-nmap'])
+        return
+
+    # Eğer -s belirtilmişse: port check olmadan doğrudan ilgili servise saldır
     if '-s' in parametreler:
         parametrik_komut_isle(hedef_ip, parametreler)
         return
-    
+
     # Diğer tüm durumlar: mevcut parametrik işleyici
     parametrik_komut_isle(hedef_ip, parametreler)
 
