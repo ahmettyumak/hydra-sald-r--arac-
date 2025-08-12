@@ -614,7 +614,7 @@ def main():
     
     # Argüman yoksa örnekleri göster (banner yok)
     if len(sys.argv) == 1:
-        print("Örnekler (Hydra benzeri):")
+        print("Örnekler:")
         print("  -L wordlists/users.txt 192.168.9.131 smtp")
         print("  -P wordlists/pass.txt 10.0.0.5 ssh")
         print("  -h 192.168.1.1")
