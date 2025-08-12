@@ -381,6 +381,8 @@ def parametrik_komut_isle(hedef_ip, parametreler):
     servisler = []
     hydra_parametreleri = {}
     nmap_yapilacak = False
+    servisler_explicit = False  # -s ile servis belirtildi mi?
+    tum_servisler = False       # -h ile tüm servisler mi istendi?
     
     i = 0
     while i < len(parametreler):
@@ -391,6 +393,7 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             servis = parametreler[i + 1].lower()
             if servis in Ayarlar.PORTLAR:
                 servisler.append(servis)
+                servisler_explicit = True
             else:
                 print(f"[!] Bilinmeyen servis: {servis}")
             i += 2
@@ -398,6 +401,7 @@ def parametrik_komut_isle(hedef_ip, parametreler):
         # Tüm servisler (-h)
         elif param == "-h":
             servisler = list(Ayarlar.PORTLAR.keys())
+            tum_servisler = True
             i += 1
             
         # Nmap taraması (-n)
@@ -440,13 +444,16 @@ def parametrik_komut_isle(hedef_ip, parametreler):
             print(f"[!] Bilinmeyen parametre: {param}")
             i += 1
     
-    # Eğer servis belirtilmemişse port check yap
-    if not servisler:
+    # -s ile servis belirtildiyse ve -h kullanılmadıysa port check atlanacak
+    skip_port_check = servisler_explicit and not tum_servisler
+    
+    # Eğer servis belirtilmemişse port check ile tespit et
+    if not servisler and not skip_port_check:
         print(f"[+] Port check ile servis tespiti yapılıyor...")
         port_checker = PortChecker(hedef_ip)
-        acik_portlar = port_checker.servis_portlarini_tara()
-        acik_servisler = port_checker.acik_servisleri_getir()
-        servisler = list(acik_servisler.keys())
+        _ = port_checker.servis_portlarini_tara()
+        acik_servisler_pc = port_checker.acik_servisleri_getir()
+        servisler = list(acik_servisler_pc.keys())
         
         if not servisler:
             print("[-] Açık servis bulunamadı!")
@@ -454,36 +461,39 @@ def parametrik_komut_isle(hedef_ip, parametreler):
     
     print(f"[+] Saldırılacak servisler: {', '.join(servisler).upper()}")
     
-    # Her servis için port check yap
     acik_servisler = {}
-    for servis_adi in servisler:
-        port = Ayarlar.PORTLAR[servis_adi]
-        print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
-        
-        # Port check yap
-        try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(3)
-            result = sock.connect_ex((hedef_ip, port))
-            sock.close()
+    if skip_port_check:
+        # Port check YAPMA, doğrudan servis listesi ile devam et
+        for servis_adi in servisler:
+            acik_servisler[servis_adi] = Ayarlar.PORTLAR[servis_adi]
+    else:
+        # Her servis için port check yap
+        for servis_adi in servisler:
+            port = Ayarlar.PORTLAR[servis_adi]
+            print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
             
-            if result == 0:
-                print(f"[+] {servis_adi.upper()} port {port} açık")
-                acik_servisler[servis_adi] = port
-            else:
-                print(f"[-] {servis_adi.upper()} port {port} kapalı - atlanıyor")
-        except Exception as e:
-            print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
-            continue
+            # Port check yap
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                result = sock.connect_ex((hedef_ip, port))
+                sock.close()
+                
+                if result == 0:
+                    print(f"[+] {servis_adi.upper()} port {port} açık")
+                    acik_servisler[servis_adi] = port
+                else:
+                    print(f"[-] {servis_adi.upper()} port {port} kapalı - atlanıyor")
+            except Exception as e:
+                print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
+                continue
     
     if not acik_servisler:
         print("[-] Hiçbir servis portu açık değil!")
         return
     
-    print(f"\n[+] Açık servisler: {', '.join(acik_servisler.keys()).upper()}")
-    
-    # Servis sınıfları eşleme
+    # Servis sınıfları eşleme (desteklenen servisler)
     servis_esleme = {
         'ftp': FTPBruteForce,
         'ssh': SSHBruteForce,
@@ -501,6 +511,19 @@ def parametrik_komut_isle(hedef_ip, parametreler):
         'vnc': VNCBruteForce,
         'mssql': MSSQLBruteForce
     }
+
+    # -h modunda: önce desteklenenlerin tamamını, sonra bu hedefte saldırılabilecekleri listele
+    if tum_servisler:
+        desteklenen = list(servis_esleme.keys())
+        print(f"\n[+] Bu araç toplam {len(desteklenen)} servisi destekliyor:")
+        print("    " + ", ".join(s.upper() for s in desteklenen))
+        print(f"[+] Bu hedefte brute force yapılabilecek servisler ({len(acik_servisler)}):")
+        for s, p in acik_servisler.items():
+            print(f"    - {s.upper()} (port {p})")
+        print("[+] Başlatılıyor...\n")
+    else:
+        if not skip_port_check:
+            print(f"\n[+] Açık servisler: {', '.join(acik_servisler.keys()).upper()}")
     
     # Varsayılan değerler
     kullanici_listesi = hydra_parametreleri.get('-L', Ayarlar.KULLANICI_ADI_LISTESI)
@@ -563,54 +586,45 @@ def main():
     for dir in ["wordlists", "reports", "sonuclar"]:
         os.makedirs(dir, exist_ok=True)
     
-    giris_ekrani()
+    # Komut satırı parametreleri kontrolü (input yok)
+    if len(sys.argv) == 1:
+        giris_ekrani()
+        print("[!] Bir host ve parametre giriniz. Örnekler:")
+        print("    python main.py 192.168.1.1 -h")
+        print("    python main.py 192.168.1.1 -s ssh -t 8")
+        print("    python main.py 192.168.1.1 -n")
+        return
     
-    # Komut satırı parametreleri kontrolü
-    if len(sys.argv) > 1:
-        hedef_ip = sys.argv[1]
-        
-        # Tek argüman verilmiş ama içinde parametreler var ise (örn: "192.168.1.1 -h") ayrıştır
-        if len(sys.argv) == 2 and (' ' in hedef_ip):
-            try:
-                tokens = shlex.split(hedef_ip)
-            except Exception:
-                tokens = hedef_ip.split()
-            if len(tokens) >= 2:
-                hedef_ip, parametreler = tokens[0], tokens[1:]
-                print(f"[+] Hedef: {hedef_ip}")
-                print(f"[+] Parametreler: {' '.join(parametreler)}")
-                parametrik_komut_isle(hedef_ip, parametreler)
-                return
-        
-        # Eğer sadece IP verilmişse parametrik komut işle
-        if len(sys.argv) > 2:
-            parametreler = sys.argv[2:]
-            parametrik_komut_isle(hedef_ip, parametreler)
-        else:
-            # Sadece IP verilmişse port check yap
-            print(f"[+] Hedef: {hedef_ip}")
-            print(f"[+] Port check ile saldırı başlatılıyor...")
-            raporlayici = Raporlayici()
-            port_check_ve_saldiri(hedef_ip, raporlayici)
-            
-    else:
-        # Etkileşimli mod
-        hedef_giris = hedef_ip_al()
-        
-        # Interaktif modda birleşik giriş verilmişse (örn: "192.168.1.1 -h") doğrudan işle ve çık
-        if isinstance(hedef_giris, tuple):
-            hedef_ip, parametreler = hedef_giris
-            print(f"\n[+] Hedef: {hedef_ip}")
-            parametrik_komut_isle(hedef_ip, parametreler)
-            return
-        else:
-            hedef_ip = hedef_giris
-        
-        # Sadece IP verilmişse port check yap
-        print(f"\n[+] Hedef: {hedef_ip}")
-        print(f"[+] Port check ile saldırı başlatılıyor...")
-        raporlayici = Raporlayici()
-        port_check_ve_saldiri(hedef_ip, raporlayici)
+    # Argümanları topla
+    tokens = sys.argv[1:]
+    
+    # İlk argüman host mu?
+    if tokens[0].startswith('-'):
+        print("[!] Host eksik. Bir host belirtiniz. Örnek: 192.168.1.1 -h")
+        return
+    
+    hedef_ip = tokens[0]
+    
+    # Sadece host verilmişse
+    if len(tokens) == 1:
+        print("[!] Parametre eksik. Bir parametre belirtiniz. Örnek: -h veya -s ssh")
+        return
+    
+    parametreler = tokens[1:]
+    
+    # Eğer tek parametre -h ise: host + -h -> tüm servisler (port check ile listele ve saldır)
+    if len(parametreler) == 1 and parametreler[0] == '-h':
+        print("[+] Tüm servisler listeleniyor (açık olanlara saldırılacak)...")
+        parametrik_komut_isle(hedef_ip, ['-h'])
+        return
+    
+    # Eğer <ip> -s ssh ... ise: port check olmadan doğrudan ilgili servise saldır
+    if '-s' in parametreler:
+        parametrik_komut_isle(hedef_ip, parametreler)
+        return
+    
+    # Diğer tüm durumlar: mevcut parametrik işleyici
+    parametrik_komut_isle(hedef_ip, parametreler)
 
 if __name__ == "__main__":
     main()
