@@ -303,7 +303,7 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
             i += 1
             
         # Hydra parametreleri
-        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m", "-V", "-d", "-f", "-x", "-u", "-e", "-4", "-6", "-S", "-O", "-K", "-q", "-U", "-I"]:
+        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m", "-V", "-d", "-f", "-x", "-u", "-e", "-4", "-6", "-S", "-O", "-K", "-q", "-U", "-I", "--no-parallel"]:
             if param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-F", "-C", "-M", "-m"]: # Değer alan parametreler
                 if i + 1 < len(parametreler):
                     hydra_parametreleri[param] = parametreler[i + 1]
@@ -311,7 +311,7 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
                 else:
                     print(f"[!] Hata: {param} parametresi için değer eksik.")
                     i += 1 # Hatalı parametreyi atla
-            else: # Değer almayan parametreler (-R, -V, -d, -f, -x, -u, -e, -4, -6, -S, -O, -K, -q, -U, -I)
+            else: # Değer almayan parametreler (-R, -V, -d, -f, -x, -u, -e, -4, -6, -S, -O, -K, -q, -U, -I) ve custom bayraklar
                 hydra_parametreleri[param] = True
                 i += 1
         else:

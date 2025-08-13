@@ -61,8 +61,13 @@ Varsayılan Nmap argümanları `config.py` içinde tanımlıdır: `-sS -sV --scr
 - Çıktı/Log: `-o <file>`, `-b <file>`, `-x` (XML)
 - Akış: `-f` (ilk başarılıda dur), `-R` (restore)
 - HTTP form: `-F <form_params>` (örn: `/login:username=^USER^&password=^PASS^:F=Invalid`)
-- Diğer: `-C <file>`, `-M <module>`, `-m <service>`, `-V` (verbose), `-d` (debug), `-u`, `-e <nsr>`, `-4/-6`, `-S`, `-O`, `-K`, `-q`, `-U`, `-I`
+- Diğer: `-C <file>`, `-M <module>`, `-m <service>`, `-V` (verbose), `-d` (debug), `-u`, `-e <nsr>`, `-4/-6`, `-S`, `-O`, `-K`, `-q`, `-U`, `-I`, `--no-parallel`
 - Özel port: `-s <port>` (bizim araçta da desteklenir)
+
+### Paralellik (Brute-Force)
+- Varsayılan davranış: Sıralı saldırı. `config.py` içinde `BRUTE_FORCE_MAX_PARALLEL = 1`.
+- Paralel isterseniz: `config.py` içinde `BRUTE_FORCE_MAX_PARALLEL` değerini >1 yapın (örn. 3-4).
+- Her durumda sıralı zorlamak için: komut satırına `--no-parallel` ekleyin.
 
 ## HTTP/HTTPS Tespiti
 - Araç, Nmap sonuçlarını normalize eder ve `HTTPS` ile `HTTP`’yi otomatik ayırt eder.
