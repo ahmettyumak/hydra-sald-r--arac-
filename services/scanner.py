@@ -37,10 +37,12 @@ class NmapTarayici:
             sonuclar = []
             for host in self.nm.all_hosts():
                 for proto in self.nm[host].all_protocols():
-                    ports = self.nm[host][proto].keys()
+                    ports = sorted(self.nm[host][proto].keys())
                     for port in ports:
-                        servis = self.nm[host][proto][port]['name']
-                        versiyon = self.nm[host][proto][port].get('version', 'bilinmiyor')
+                        port_info = self.nm[host][proto][port]
+                        servis_raw = port_info.get('name', '')
+                        servis = self._normalize_servis(servis_raw, port_info, port)
+                        versiyon = port_info.get('version', 'bilinmiyor')
                         sonuclar.append({
                             'host': host,
                             'port': port,
@@ -117,3 +119,22 @@ class NmapTarayici:
             args.append(str(value))
         
         return ' '.join(args)
+
+    def _normalize_servis(self, name, port_info, port_number):
+        """Nmap servis adını araç içinde kullanılan servis adına dönüştürür."""
+        s = (name or '').lower()
+        tunnel = (port_info.get('tunnel') or '').lower()
+        # HTTPS tespiti: tunnel=ssl veya servis adında https ya da ssl/http benzeri
+        if tunnel == 'ssl' or s.startswith('https') or s.startswith('ssl/http') or port_number in (443, 8443, 9443):
+            return 'https'
+        # HTTP varyasyonlarını http'ye indir
+        if 'http' in s:
+            return 'http'
+        # Bazı yaygın eşleşmeler
+        if s in ('ms-wbt-server', 'rdp'):
+            return 'rdp'
+        if s in ('microsoft-ds', 'smb'):
+            return 'smb'
+        if s in ('ms-sql-s', 'ms-sql', 'mssql'):
+            return 'mssql'
+        return s
