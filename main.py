@@ -348,32 +348,34 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
     # Her servis için port check yap (Nmap modu hariç ve servis açıkça belirtilmediyse)
     acik_servisler = {}
     if not nmap_yapilacak and not servisler_explicit:
+        # Servis->port eşlemesini hazırla (özel port verilmişse onu kullan)
+        service_to_port = {}
         for servis_adi in servisler:
-            port = Ayarlar.PORTLAR.get(servis_adi) # Varsayılan port
-            if custom_port is not None: # Eğer özel port belirtildiyse onu kullan
+            port = Ayarlar.PORTLAR.get(servis_adi)
+            if custom_port is not None:
                 port = custom_port
-            
-            if port is None: # Eğer servis adı bilinmiyorsa ve özel port da yoksa atla
+            if port is None:
                 print(f"[!] {servis_adi.upper()} için varsayılan port bulunamadı ve özel port belirtilmedi. Atlanıyor.")
                 continue
-            
-            print(f"[*] {servis_adi.upper()} port {port} kontrol ediliyor...")
-            
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(Ayarlar.PORT_CHECK_TIMEOUT)
-                result = sock.connect_ex((hedef_ip, port))
-                sock.close()
-                
-                if result == 0:
-                    print(f"[+] {servis_adi.upper()} port {port} açık")
-                    acik_servisler[servis_adi] = port
-                else:
-                    print(f"[-] {servis_adi.upper()} port {port} kapalı - atlanıyor")
-            except Exception as e:
-                print(f"[!] {servis_adi.upper()} port {port} kontrol hatası: {str(e)}")
-                continue
+            service_to_port[servis_adi] = port
+        # Kullanıcıya bilgilendirme
+        for s_name, s_port in service_to_port.items():
+            print(f"[*] {s_name.upper()} port {s_port} kontrol ediliyor...")
+        # Toplu tarama ile daha doğru sonuç alın (yeniden denemeli)
+        try:
+            port_checker = PortChecker(hedef_ip)
+            unique_ports = sorted(set(service_to_port.values()))
+            scanned = port_checker.toplu_port_tarama(unique_ports)
+        except Exception as e:
+            print(f"[!] Toplu port tarama hatası: {str(e)}")
+            scanned = {}
+        # Sonuçları servis bazında değerlendir
+        for s_name, s_port in service_to_port.items():
+            if scanned.get(s_port):
+                print(f"[+] {s_name.upper()} port {s_port} açık")
+                acik_servisler[s_name] = s_port
+            else:
+                print(f"[-] {s_name.upper()} port {s_port} kapalı - atlanıyor")
     elif servisler_explicit: # Servis açıkça belirtildiyse (target service ile), port check yapma, doğrudan servis listesi ile devam et
         for servis_adi in servisler:
             # Özel port belirtildiyse onu kullan, yoksa varsayılan port

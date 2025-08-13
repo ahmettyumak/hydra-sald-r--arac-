@@ -11,19 +11,31 @@ class PortChecker:
         self.acik_portlar = {}
         
     def port_kontrol(self, port):
-        """Tek bir portu kontrol eder"""
+        """Tek bir portu kontrol eder (gerekirse kısa yeniden deneme yapar)"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
             sonuc = sock.connect_ex((self.hedef_ip, port))
             sock.close()
-            
             if sonuc == 0:
                 return port, True
-            return port, False
         except:
-            return port, False
-    
+            pass
+        
+        # İkinci deneme: biraz daha uzun timeout ile (ağ gecikmeleri/ilk SYN drop için)
+        try:
+            ikinci_timeout = min(10, max(self.timeout, int(self.timeout * 2)))
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(ikinci_timeout)
+            sonuc = sock.connect_ex((self.hedef_ip, port))
+            sock.close()
+            if sonuc == 0:
+                return port, True
+        except:
+            pass
+        
+        return port, False
+        
     def toplu_port_tarama(self, port_listesi):
         """Belirtilen portları paralel olarak tarar"""
         print(f"[*] {self.hedef_ip} için port taraması başlatılıyor...")
@@ -41,13 +53,13 @@ class PortChecker:
                     print(f"[+] Port {port} açık")
         
         return self.acik_portlar
-    
+        
     def servis_portlarini_tara(self):
         """Desteklenen servislerin portlarını tarar"""
         from config import Ayarlar
         port_listesi = list(Ayarlar.PORTLAR.values())
         return self.toplu_port_tarama(port_listesi)
-    
+        
     def acik_servisleri_getir(self):
         """Açık portlara karşılık gelen servisleri döndürür"""
         from config import Ayarlar
