@@ -1,75 +1,109 @@
 # Hydra Brute Force Saldırı Aracı
 
-## Basit Kullanım
+## Gereksinimler
 
-Artık `python main.py` yazmaya gerek yok! Sadece IP ve parametreleri yazın:
+- Python 3 ve pip (Python bağımlılıkları için)
+- Nmap (binary) ve Hydra (binary)
+  - Debian/Ubuntu:
+    - `sudo apt-get update && sudo apt-get install -y nmap hydra`
+- Python paketleri:
+  - `pip install -r requirements.txt`
 
-### Etkileşimli Mod
-```bash
-python main.py
-# Program açıldıktan sonra:
-192.168.1.1        # Port check + brute force
-192.168.1.1 -h     # Tüm servislere saldırı
-192.168.1.1 -s ssh # SSH servisine saldırı
-192.168.1.1 -n     # Nmap taraması
-```
+Not: Nmap ve Hydra, sistem paketleri olarak kurulu olmalıdır. Python paketleri `python-nmap` vb. için `requirements.txt` yeterlidir.
 
-### Komut Satırı Modu
-```bash
-python main.py 192.168.1.1        # Port check + brute force
-python main.py 192.168.1.1 -h     # Tüm servislere saldırı
-python main.py 192.168.1.1 -s ssh -t 8
-python main.py 192.168.1.1 -s ftp -L users.txt -P pass.txt
-```
-
-## Parametreler
-
-- **Sadece IP**: Port check yapıp açık portlara brute force
-- `-h`: Tüm servislere saldırı
-- `-s [servis]`: Belirli servis (ssh, ftp, http, mysql, vb.)
-- `-n`: Nmap taraması
-- `-t [sayı]`: Thread sayısı
-- `-W [saniye]`: Timeout
-- `-L [dosya]`: Kullanıcı listesi dosyası
-- `-P [dosya]`: Şifre listesi dosyası
-- `-F [parametreler]`: HTTP form parametreleri
-
-## Örnekler
+## Hızlı Başlangıç
 
 ```bash
-# Sadece IP - Port check + brute force
-192.168.1.1
+# Çalıştırma
+python3 main.py --help
 
-# Tüm servislere saldırı
-192.168.1.1 -h
+# Nmap taraması (varsayılan popüler portlar, versiyon tespiti)
+python3 main.py -nmap -sV 192.168.9.131
 
-# SSH brute force, 8 thread
-192.168.1.1 -s ssh -t 8
+# Nmap ileri seviye örnek (verbose, hız profili, port aralığı, script)
+python3 main.py -nmap -vv -T4 -p 22,80 --script=banner 192.168.9.131
 
-# HTTP form brute force
-192.168.1.1 -s http -F "/login:username=^USER^&password=^PASS^:F=Invalid login"
+# Belirli servise brute-force (Hydra parametreleri desteklenir)
+python3 main.py -L wordlists/users.txt -P wordlists/passwords.txt 192.168.9.131 ssh
 
-# Nmap taraması
-192.168.1.1 -n
+# Tüm desteklenen servislere (port check ile) brute-force denemesi
+python3 main.py -h 192.168.9.131
 
-# FTP özel wordlist ile
-192.168.1.1 -s ftp -L users.txt -P pass.txt
+# Çoklu hedef dosyası ile (her satır bir hedef)
+python3 main.py -L users.txt -P pass.txt -M targets.txt ssh
 ```
 
-## Desteklenen Servisler
+## Kullanım
 
-- FTP, SSH, HTTP, HTTPS
-- MySQL, PostgreSQL, MongoDB
-- SMTP, POP3, IMAP
-- RDP, SMB, Telnet, VNC
-- MSSQL
+- Söz dizimi:
+  - `-nmap <target> [NMAP_OPTIONS...]`
+  - `[OPTIONS] <target> <service>`
+  - `[OPTIONS] -M <targets.txt> <service>`
+  - `-h <target>` (desteklenen tüm servislere saldır)
 
-## Not
+- Desteklenen servisler: `FTP, SSH, HTTP, HTTPS, MySQL, PostgreSQL, MongoDB, SMTP, POP3, IMAP, RDP, SMB, Telnet, VNC, MSSQL`
 
-Program artık sadece IP ve parametreleri bekliyor. `main.py` yazmaya gerek yok!
+### Nmap Seçenekleri (desteklenenler)
+- Tarama türleri: `-sS, -sT, -sU, -sA, -sW, -sM, -sN, -sF, -sX`
+- Portlar: `-p <aralık>`, `-p-` (tüm portlar)
+- Hız/performans: `-F`, `-T<0-5>` veya `-T4`
+- Keşif/detay: `-A`, `-O`, `-sV`, `-sC`, `--script <name>` veya `--script=<name>`
+- Çıktı: `-oN <file>`, `-oX <file>`, `-oG <file>`
+- Verbose/Debug: `-v, -vv, -vvv`, `-d, -dd, -ddd`
+- Diğer: `-Pn` (host discovery atla), `-n` (DNS kapalı)
 
-**Yeni Özellik**: Mod seçimi kaldırıldı, sadece parametrelerle çalışıyor:
-- Sadece IP → Port check + brute force
-- IP + -h → Tüm servislere saldırı
-- IP + -s [servis] → Belirli servise saldırı
-- IP + -n → Nmap taraması
+Varsayılan Nmap argümanları `config.py` içinde tanımlıdır: `-sS -sV --script=banner -T4 --open`
+
+### Hydra Seçenekleri (desteklenenler)
+- Listeler: `-L <file>`, `-P <file>`
+- Tek kullanıcı/şifre: `-l <user>`, `-p <pass>`
+- Performans: `-t <threads>`, `-W <timeout>`
+- Çıktı/Log: `-o <file>`, `-b <file>`, `-x` (XML)
+- Akış: `-f` (ilk başarılıda dur), `-R` (restore)
+- HTTP form: `-F <form_params>` (örn: `/login:username=^USER^&password=^PASS^:F=Invalid`)
+- Diğer: `-C <file>`, `-M <module>`, `-m <service>`, `-V` (verbose), `-d` (debug), `-u`, `-e <nsr>`, `-4/-6`, `-S`, `-O`, `-K`, `-q`, `-U`, `-I`
+- Özel port: `-s <port>` (bizim araçta da desteklenir)
+
+## HTTP/HTTPS Tespiti
+- Araç, Nmap sonuçlarını normalize eder ve `HTTPS` ile `HTTP`’yi otomatik ayırt eder.
+  - `tunnel=ssl`, servis adı `https`/`ssl/http` veya tipik portlar `443/8443/9443` → `https`
+  - Diğer `http*` varyasyonları → `http`
+- Böylece aynı hedefte HTTP/HTTPS çakışmaları ve tekrarlı denemeler önlenir.
+
+## `python main.py` yazmadan çalıştırma
+
+- Dosyayı çalıştırılabilir yapın:
+```bash
+chmod +x main.py
+./main.py -nmap -v 192.168.9.131
+```
+
+- Veya global wrapper komutu oluşturun:
+```bash
+sudo tee /usr/local/bin/hydra-araci >/dev/null <<'EOF'
+#!/usr/bin/env bash
+python3 /full/path/to/main.py "$@"
+EOF
+sudo chmod +x /usr/local/bin/hydra-araci
+
+hydra-araci -nmap -v 192.168.9.131
+```
+
+- Veya shell alias (geçerli kullanıcı için):
+```bash
+echo "alias hydra-araci='python3 /full/path/to/main.py'" >> ~/.bashrc
+source ~/.bashrc
+hydra-araci -h 192.168.9.131
+```
+
+## Wordlist ve Raporlama
+- Varsayılan listeler: `wordlists/users.txt` ve `wordlists/passwords.txt`
+- Sonuçlar konsola yazdırılır; ek olarak `utils/raporlayici.py` ile bellek içi rapor tutulur ve istenirse dosyaya aktarılabilir.
+
+## Önemli Notlar
+- Nmap/Hydra komutları sisteminizde yoksa kurulum gereklidir (`apt install nmap hydra`).
+- Çoklu hedef için `-M targets.txt <service>` formatını kullanın (dosyada her satır bir hedef).
+- Özel port için `-s <port>` parametresi verilebilir.
+
+## Lisans
+Bu proje eğitim amaçlıdır. Sadece yetkili/izinli ortamlarda kullanın.
