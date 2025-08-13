@@ -87,8 +87,14 @@ class NmapTarayici:
         if not nmap_parametreleri:
             return Ayarlar.NMAP_ARGUMANLARI
         
-        # Varsayılan argümanları al
-        args = Ayarlar.NMAP_ARGUMANLARI.split()
+        # Varsayılan argümanları al veya sıfırdan başla
+        use_no_defaults = bool(nmap_parametreleri.get('__no_defaults__'))
+        if use_no_defaults:
+            # Özel anahtarı tüket
+            nmap_parametreleri = {k: v for k, v in nmap_parametreleri.items() if k != '__no_defaults__'}
+            args = []
+        else:
+            args = Ayarlar.NMAP_ARGUMANLARI.split()
         
         # Yeni parametreleri ekle (bazılarını override et)
         for param, value in nmap_parametreleri.items():

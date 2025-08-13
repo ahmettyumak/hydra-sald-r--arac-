@@ -287,6 +287,9 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
 
                 # Nmap parametresi değil, döngüyü kır
                 break
+            # Hız için: kullanıcı daraltma vermemişse varsayılan argümanları kaldır
+            if not any(k in nmap_parametreleri for k in ('-p', '-F')):
+                nmap_parametreleri['__no_defaults__'] = True
             
             print(f"[+] Nmap taraması başlatılıyor...")
             raporlayici = Raporlayici()
@@ -605,6 +608,9 @@ def main():
         
         # Nmap parametrelerini parametrik_komut_isle'ye gönder
         nmap_args = ['-nmap']
+        # Kullanıcı -F (fast) veya -p ile daraltma vermediyse varsayılanları yüklemek yerine boş set kullan (hız için)
+        if not any(k in nmap_parametreleri for k in ('-p', '-F')):
+            nmap_parametreleri['__no_defaults__'] = True
         for param, value in nmap_parametreleri.items():
             nmap_args.append(param)
             if value is not True:

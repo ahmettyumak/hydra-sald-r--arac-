@@ -13,8 +13,8 @@ class Ayarlar:
     NMAP_ARGUMANLARI = '-sS -sV --script=banner -T4 --open'
     
     # Hydra ayarları
-    HYDRA_TIMEOUT = 300  # Büyük wordlistlerde zaman aşımını önlemek için artırıldı
-    HYDRA_THREADS = 4
+    HYDRA_TIMEOUT = 180  # Daha hızlı geri dönüş için düşürüldü (kullanıcı -W ile artırabilir)
+    HYDRA_THREADS = 6  # Varsayılanı biraz artırıldı; kullanıcı -t ile değiştirebilir
     
     # Özel servis ayarları kaldırıldı - manuel hydra komutlarıyla uyumlu olması için
     
