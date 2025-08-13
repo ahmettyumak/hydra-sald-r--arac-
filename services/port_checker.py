@@ -11,7 +11,7 @@ class PortChecker:
         self.acik_portlar = {}
         
     def port_kontrol(self, port):
-        """Tek bir portu kontrol eder (gerekirse kısa yeniden deneme yapar)"""
+        """Tek bir portu kontrol eder"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
@@ -19,22 +19,9 @@ class PortChecker:
             sock.close()
             if sonuc == 0:
                 return port, True
+            return port, False
         except:
-            pass
-        
-        # İkinci deneme: biraz daha uzun timeout ile (ağ gecikmeleri/ilk SYN drop için)
-        try:
-            ikinci_timeout = min(10, max(self.timeout, int(self.timeout * 2)))
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(ikinci_timeout)
-            sonuc = sock.connect_ex((self.hedef_ip, port))
-            sock.close()
-            if sonuc == 0:
-                return port, True
-        except:
-            pass
-        
-        return port, False
+            return port, False
         
     def toplu_port_tarama(self, port_listesi):
         """Belirtilen portları paralel olarak tarar"""
