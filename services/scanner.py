@@ -8,9 +8,12 @@ class NmapTarayici:
         self.nm = nmap.PortScanner()
         self.rapor = Raporlayici()
     
-    def detayli_tarama(self, port_araligi=None):
+    def detayli_tarama(self, port_araligi=None, nmap_parametreleri=None):
         """Nmap ile gelişmiş servis ve versiyon tespiti"""
         try:
+            # Nmap parametrelerini işle
+            nmap_args = self._nmap_parametreleri_isle(nmap_parametreleri)
+            
             port_araligi = port_araligi if port_araligi is not None else Ayarlar.NMAP_PORT_ARALIGI
             if port_araligi:
                 print(f"[*] {self.hedef_ip} Nmap taraması başlatılıyor (Portlar: {port_araligi})...")
@@ -23,10 +26,10 @@ class NmapTarayici:
                 raise ValueError(f"Geçersiz hedef formatı: {self.hedef_ip}")
             
             if port_araligi:
-                self.nm.scan(hosts=hedef, ports=port_araligi, arguments=Ayarlar.NMAP_ARGUMANLARI)
+                self.nm.scan(hosts=hedef, ports=port_araligi, arguments=nmap_args)
             else:
                 # ports parametresi None ise nmap'in varsayılan port listesini kullan
-                self.nm.scan(hosts=hedef, arguments=Ayarlar.NMAP_ARGUMANLARI)
+                self.nm.scan(hosts=hedef, arguments=nmap_args)
             
             if not self.nm.all_hosts():
                 raise ValueError("Hedef taranamadı veya filtreli")
@@ -76,3 +79,25 @@ class NmapTarayici:
         
         # Tek IP veya hostname
         return hedef
+    
+    def _nmap_parametreleri_isle(self, nmap_parametreleri):
+        """Nmap parametrelerini işler ve arguments string'i oluşturur"""
+        if not nmap_parametreleri:
+            return Ayarlar.NMAP_ARGUMANLARI
+        
+        # Varsayılan argümanları al
+        args = Ayarlar.NMAP_ARGUMANLARI.split()
+        
+        # Yeni parametreleri ekle
+        for param, value in nmap_parametreleri.items():
+            if value is True:
+                # Değer almayan parametreler (-sS, -sV, -A, vb.)
+                if param not in args:
+                    args.append(param)
+            else:
+                # Değer alan parametreler (-p, -T, --script, vb.)
+                if param not in args:
+                    args.append(param)
+                    args.append(str(value))
+        
+        return ' '.join(args)

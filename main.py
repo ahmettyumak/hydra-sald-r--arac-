@@ -74,6 +74,29 @@ def yazdir_yardim():
     print("  -M <file>       # Çoklu hedef dosyası (her satırda bir hedef)")
     print("  -s <port>       # Özel port numarası belirt (opsiyonel)")
     
+    print("\n🔍 NMAP PARAMETRELERİ:")
+    print("  -sS              # TCP SYN scan")
+    print("  -sT              # TCP connect scan")
+    print("  -sU              # UDP scan")
+    print("  -sA              # TCP ACK scan")
+    print("  -sW              # TCP Window scan")
+    print("  -sM              # TCP Maimon scan")
+    print("  -sN              # TCP NULL scan")
+    print("  -sF              # TCP FIN scan")
+    print("  -sX              # TCP Xmas scan")
+    print("  -p <ports>       # Port aralığı (örn: 1-1000)")
+    print("  -p-              # Tüm portlar (1-65535)")
+    print("  -F                # Hızlı tarama (top 100 port)")
+    print("  -T<0-5>          # Timing template (0=paranoid, 5=insane)")
+    print("  -A                # Agresif tarama (OS detection, version)")
+    print("  -O                # OS detection")
+    print("  -sV              # Service/version detection")
+    print("  -sC              # Default script scan")
+    print("  --script=<name>  # Özel script çalıştır")
+    print("  -oN <file>       # Normal output")
+    print("  -oX <file>       # XML output")
+    print("  -oG <file>       # Grepable output")
+    
     print("\n🔧 HYDRA PARAMETRELERİ:")
     print("  -L <file>       # Kullanıcı listesi dosyası")
     print("  -P <file>       # Şifre listesi dosyası")
@@ -90,12 +113,21 @@ def yazdir_yardim():
     print("  -x              # XML çıktı")
     print("  -F <params>     # Form parametreleri (HTTP için)")
     print("  -C <file>       # Özel parametre dosyası")
+    print("  -u              # Kullanıcıları döngüye al")
+    print("  -e <nsr>        # Null, same, reverse")
+    print("  -4/-6           # IPv4/IPv6")
+    print("  -S              # SSL bağlantısı")
+    print("  -O              # Eski SSL v2/v3")
+    print("  -K              # Başarısız denemeleri tekrarlama")
+    print("  -q              # Bağlantı hata mesajlarını gösterme")
+    print("  -U              # Servis modül detayları")
+    print("  -I              # Restore dosyasını bekleme")
     
-    print("\n🌐 DESTEKLENEN SERVİSLER:")
+    print("\nDESTEKLENEN SERVİSLER:")
     print("  FTP, SSH, HTTP, HTTPS, MySQL, PostgreSQL, MongoDB")
     print("  SMTP, POP3, IMAP, RDP, SMB, Telnet, VNC, MSSQL")
     
-    print("\n📝 NOTLAR:")
+    print("\nNOTLAR:")
     print("  • Hydra söz dizimi: [OPTIONS] target service")
     print("  • Çoklu hedef: -M targets.txt service")
     print("  • Port belirtimi: -s parametresi ile (örn: -s 2222)")
@@ -103,7 +135,7 @@ def yazdir_yardim():
     print("  • Belirli servis verildiğinde port check yapılmaz")
     print("  • Target: IP adresi, hostname veya ağ aralığı")
     
-    print("\n📚 DOSYA FORMATLARI:")
+    print("\nDOSYA FORMATLARI:")
     print("  • targets.txt: Her satırda bir hedef (IP, hostname)")
     print("  • users.txt: Her satırda bir kullanıcı adı")
     print("  • passwords.txt: Her satırda bir şifre")
@@ -279,13 +311,17 @@ def port_check_ve_saldiri(hedef_ip, raporlayici):
                 print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
                 continue
 
-def nmap_tarama_ve_saldiri(hedef_ip, raporlayici):
+def nmap_tarama_ve_saldiri(hedef_ip, raporlayici, nmap_parametreleri=None):
     """Nmap ile detaylı tarama ve saldırı"""
     try:
         print(f"\n[+] {hedef_ip} için Nmap taraması başlatılıyor...")
         
+        # Nmap parametrelerini göster
+        if nmap_parametreleri:
+            print(f"[*] Nmap parametreleri: {' '.join([f'{k} {v}' if v is not True else k for k, v in nmap_parametreleri.items()])}")
+        
         tarayici = NmapTarayici(hedef_ip)
-        acik_servisler = tarayici.detayli_tarama()
+        acik_servisler = tarayici.detayli_tarama(nmap_parametreleri=nmap_parametreleri)
         
         if not acik_servisler:
             print("[-] Açık port bulunamadı")
@@ -482,9 +518,30 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
         # Nmap taraması (-nmap)
         elif param == "-nmap":
             nmap_yapilacak = True
+            # Nmap parametrelerini topla
+            nmap_parametreleri = {}
+            i += 1  # -nmap'i atla
+            
+            # Sonraki parametreleri Nmap parametresi olarak işle
+            while i < len(parametreler):
+                nmap_param = parametreler[i]
+                if nmap_param.startswith('-') and nmap_param not in ["-h", "-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+                    # Nmap parametresi
+                    if nmap_param in ["-p", "-T", "--script"] and i + 1 < len(parametreler):
+                        # Değer alan Nmap parametreleri
+                        nmap_parametreleri[nmap_param] = parametreler[i + 1]
+                        i += 2
+                    else:
+                        # Değer almayan Nmap parametreleri
+                        nmap_parametreleri[nmap_param] = True
+                        i += 1
+                else:
+                    # Nmap parametresi değil, döngüyü kır
+                    break
+            
             print(f"[+] Nmap taraması başlatılıyor...")
             raporlayici = Raporlayici()
-            nmap_tarama_ve_saldiri(hedef_ip, raporlayici)
+            nmap_tarama_ve_saldiri(hedef_ip, raporlayici, nmap_parametreleri)
             return
         
         # Servis belirtimi (pozisyonel parametre olarak)
@@ -494,7 +551,7 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
             i += 1
             
         # Hydra parametreleri
-        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+        elif param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m", "-V", "-d", "-f", "-x", "-u", "-e", "-4", "-6", "-S", "-O", "-K", "-q", "-U", "-I"]:
             if param in ["-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-F", "-C", "-M", "-m"]: # Değer alan parametreler
                 if i + 1 < len(parametreler):
                     hydra_parametreleri[param] = parametreler[i + 1]
@@ -502,7 +559,7 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
                 else:
                     print(f"[!] Hata: {param} parametresi için değer eksik.")
                     i += 1 # Hatalı parametreyi atla
-            else: # Değer almayan parametreler (-R)
+            else: # Değer almayan parametreler (-R, -V, -d, -f, -x, -u, -e, -4, -6, -S, -O, -K, -q, -U, -I)
                 hydra_parametreleri[param] = True
                 i += 1
         else:
@@ -742,7 +799,37 @@ def main():
             print("Örnek: -nmap 192.168.1.1")
             return
         target = tokens[positional[0]]
-        parametrik_komut_isle(target, ['-nmap'])
+        
+        # Nmap parametrelerini topla
+        nmap_parametreleri = {}
+        nmap_index = tokens.index('-nmap')
+        
+        # -nmap'den sonraki parametreleri kontrol et
+        i = nmap_index + 1
+        while i < len(tokens):
+            token = tokens[i]
+            if token.startswith('-') and token not in ["-h", "-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+                # Nmap parametresi
+                if token in ["-p", "-T", "--script"] and i + 1 < len(tokens):
+                    # Değer alan Nmap parametreleri
+                    nmap_parametreleri[token] = tokens[i + 1]
+                    i += 2
+                else:
+                    # Değer almayan Nmap parametreleri
+                    nmap_parametreleri[token] = True
+                    i += 1
+            else:
+                # Nmap parametresi değil, döngüyü kır
+                break
+        
+        # Nmap parametrelerini parametrik_komut_isle'ye gönder
+        nmap_args = ['-nmap']
+        for param, value in nmap_parametreleri.items():
+            nmap_args.append(param)
+            if value is not True:
+                nmap_args.append(str(value))
+        
+        parametrik_komut_isle(target, nmap_args)
         return
 
     # Hydra söz dizimi: [OPTIONS] target service
