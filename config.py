@@ -15,7 +15,7 @@ class Ayarlar:
     # Hydra ayarları
     HYDRA_TIMEOUT = 180  # Daha hızlı geri dönüş için düşürüldü (kullanıcı -W ile artırabilir)
     HYDRA_THREADS = 6  # Varsayılanı biraz artırıldı; kullanıcı -t ile değiştirebilir
-    BRUTE_FORCE_MAX_PARALLEL = 3  # Aynı anda en fazla kaç servis paralle çalışsın
+    BRUTE_FORCE_MAX_PARALLEL = 1  # Paralel saldırı istemeyenler için sıralı varsayılan
     
     # Özel servis ayarları kaldırıldı - manuel hydra komutlarıyla uyumlu olması için
     
