@@ -88,16 +88,32 @@ class NmapTarayici:
         # Varsayılan argümanları al
         args = Ayarlar.NMAP_ARGUMANLARI.split()
         
-        # Yeni parametreleri ekle
+        # Yeni parametreleri ekle (bazılarını override et)
         for param, value in nmap_parametreleri.items():
             if value is True:
-                # Değer almayan parametreler (-sS, -sV, -A, vb.)
+                # Değer almayan parametreler (-sS, -sV, -A, -v, -Pn, -n, vb.)
                 if param not in args:
                     args.append(param)
-            else:
-                # Değer alan parametreler (-p, -T, --script, vb.)
-                if param not in args:
-                    args.append(param)
-                    args.append(str(value))
+                continue
+            
+            # Değer alan parametreler (-p, -T, --script, -oN, -oX, -oG, vb.)
+            if param == '-T':
+                # Mevcut -T* tokenlarını kaldır ve -T4 formatında ekle
+                args = [tok for tok in args if not (tok.startswith('-T') and len(tok) >= 2 and tok[2:])]
+                args.append(f"-T{value}")
+                continue
+            if param == '--script':
+                # --script=... biçimini normalize et, varsa eskisini sil
+                args = [tok for tok in args if not tok.startswith('--script')]
+                args.append(f"--script={value}")
+                continue
+            
+            # Diğerleri için çiftli formatı koru
+            if param in args:
+                # Aynı param zaten varsa (örn: -p), mevcut değeri olduğu gibi bırakıp yenisini ekle
+                # Nmap son değeri kullanacaktır
+                pass
+            args.append(param)
+            args.append(str(value))
         
         return ' '.join(args)

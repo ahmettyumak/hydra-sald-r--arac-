@@ -20,6 +20,7 @@ from services.mssql import MSSQLBruteForce
 from services.mongodb import MongoDBBruteForce
 from utils.raporlayici import Raporlayici
 from config import Ayarlar
+from services.port_checker import PortChecker
 
 
 
@@ -66,13 +67,17 @@ def yazdir_yardim():
     print("  -sX              # TCP Xmas scan")
     print("  -p <ports>       # Port aralığı (örn: 1-1000)")
     print("  -p-              # Tüm portlar (1-65535)")
-    print("  -F                # Hızlı tarama (top 100 port)")
-    print("  -T<0-5>          # Timing template (0=paranoid, 5=insane)")
-    print("  -A                # Agresif tarama (OS detection, version)")
-    print("  -O                # OS detection")
+    print("  -F               # Hızlı tarama (top 100 port)")
+    print("  -T<0-5>          # Timing template (0=paranoid, 5=insane) veya -T4 şeklinde")
+    print("  -A               # Agresif tarama (OS detection, version)")
+    print("  -O               # OS detection")
     print("  -sV              # Service/version detection")
     print("  -sC              # Default script scan")
-    print("  --script=<name>  # Özel script çalıştır")
+    print("  -v/-vv/-vvv      # Verbose seviyeleri")
+    print("  -d/-dd/-ddd      # Debug seviyeleri")
+    print("  -Pn              # Host discovery atla")
+    print("  -n               # DNS çözümlemesini kapat")
+    print("  --script=<name>  # Özel script çalıştır veya --script=... şekli")
     print("  -oN <file>       # Normal output")
     print("  -oX <file>       # XML output")
     print("  -oG <file>       # Grepable output")
@@ -232,21 +237,56 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
             
             # Sonraki parametreleri Nmap parametresi olarak işle
             while i < len(parametreler):
-                nmap_param = parametreler[i]
-                # Sadece gerçek Nmap parametrelerini kabul et
-                if nmap_param.startswith('-') and nmap_param in ["-sS", "-sT", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-p", "-T", "-F", "-A", "-O", "-sV", "-sC", "--script", "-oN", "-oX", "-oG"]:
-                    # Nmap parametresi
-                    if nmap_param in ["-p", "-T", "--script", "-oN", "-oX", "-oG"] and i + 1 < len(parametreler):
-                        # Değer alan Nmap parametreleri
-                        nmap_parametreleri[nmap_param] = True
-                        i += 2
-                    else:
-                        # Değer almayan Nmap parametreleri
-                        nmap_parametreleri[nmap_param] = True
-                        i += 1
-                else:
-                    # Nmap parametresi değil, döngüyü kır
+                nmap_tok = parametreler[i]
+                if not nmap_tok.startswith('-'):
                     break
+
+                boolean_flags = {"-sS", "-sT", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-F", "-A", "-O", "-sV", "-sC", "-Pn", "-n"}
+                value_flags = {"-p", "-T", "--script", "-oN", "-oX", "-oG"}
+
+                # -v/-vv/-vvv ve -d/-dd/-ddd desteği
+                stripped = nmap_tok.lstrip('-')
+                if stripped and set(stripped) <= {"v"}:
+                    nmap_parametreleri[nmap_tok] = True
+                    i += 1
+                    continue
+                if stripped and set(stripped) <= {"d"}:
+                    nmap_parametreleri[nmap_tok] = True
+                    i += 1
+                    continue
+                # -V'yi -v olarak kabul et (yaygın karışıklık için tolerans)
+                if nmap_tok == "-V":
+                    nmap_parametreleri["-v"] = True
+                    i += 1
+                    continue
+
+                # -T4 gibi birleşik kullanım
+                if nmap_tok.startswith('-T') and len(nmap_tok) > 2 and nmap_tok[2:].isdigit():
+                    nmap_parametreleri['-T'] = nmap_tok[2:]
+                    i += 1
+                    continue
+                # --script=xxx desteği
+                if nmap_tok.startswith('--script='):
+                    nmap_parametreleri['--script'] = nmap_tok.split('=', 1)[1]
+                    i += 1
+                    continue
+                # -p- tüm portlar
+                if nmap_tok == '-p-':
+                    nmap_parametreleri['-p'] = '-'
+                    i += 1
+                    continue
+
+                if nmap_tok in boolean_flags:
+                    nmap_parametreleri[nmap_tok] = True
+                    i += 1
+                    continue
+                if nmap_tok in value_flags and i + 1 < len(parametreler):
+                    nmap_parametreleri[nmap_tok] = parametreler[i + 1]
+                    i += 2
+                    continue
+
+                # Nmap parametresi değil, döngüyü kır
+                break
             
             print(f"[+] Nmap taraması başlatılıyor...")
             raporlayici = Raporlayici()
@@ -516,21 +556,50 @@ def main():
         # -nmap'den sonraki parametreleri kontrol et
         i = nmap_index + 1
         while i < len(tokens):
-            token = tokens[i]
-            # Sadece gerçek Nmap parametrelerini kabul et
-            if token.startswith('-') and token in ["-sS", "-sT", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-p", "-T", "-F", "-A", "-O", "-sV", "-sC", "--script", "-oN", "-oX", "-oG"]:
-                # Nmap parametresi
-                if token in ["-p", "-T", "--script", "-oN", "-oX", "-oG"] and i + 1 < len(tokens):
-                    # Değer alan Nmap parametreleri
-                    nmap_parametreleri[token] = tokens[i + 1]
-                    i += 2
-                else:
-                    # Değer almayan Nmap parametreleri
-                    nmap_parametreleri[token] = True
-                    i += 1
-            else:
-                # Nmap parametresi değil, döngüyü kır
+            tok = tokens[i]
+            if not tok.startswith('-'):
                 break
+
+            boolean_flags = {"-sS", "-sT", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-F", "-A", "-O", "-sV", "-sC", "-Pn", "-n"}
+            value_flags = {"-p", "-T", "--script", "-oN", "-oX", "-oG"}
+
+            stripped = tok.lstrip('-')
+            if stripped and set(stripped) <= {"v"}:
+                nmap_parametreleri[tok] = True
+                i += 1
+                continue
+            if stripped and set(stripped) <= {"d"}:
+                nmap_parametreleri[tok] = True
+                i += 1
+                continue
+            if tok == "-V":
+                nmap_parametreleri["-v"] = True
+                i += 1
+                continue
+
+            if tok.startswith('-T') and len(tok) > 2 and tok[2:].isdigit():
+                nmap_parametreleri['-T'] = tok[2:]
+                i += 1
+                continue
+            if tok.startswith('--script='):
+                nmap_parametreleri['--script'] = tok.split('=', 1)[1]
+                i += 1
+                continue
+            if tok == '-p-':
+                nmap_parametreleri['-p'] = '-'
+                i += 1
+                continue
+
+            if tok in boolean_flags:
+                nmap_parametreleri[tok] = True
+                i += 1
+                continue
+            if tok in value_flags and i + 1 < len(tokens):
+                nmap_parametreleri[tok] = tokens[i + 1]
+                i += 2
+                continue
+
+            break
         
         # Nmap parametrelerini parametrik_komut_isle'ye gönder
         nmap_args = ['-nmap']
