@@ -525,11 +525,12 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
             # Sonraki parametreleri Nmap parametresi olarak işle
             while i < len(parametreler):
                 nmap_param = parametreler[i]
-                if nmap_param.startswith('-') and nmap_param not in ["-h", "-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+                # Sadece gerçek Nmap parametrelerini kabul et
+                if nmap_param.startswith('-') and nmap_param in ["-sS", "-sT", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-p", "-T", "-F", "-A", "-O", "-sV", "-sC", "--script", "-oN", "-oX", "-oG"]:
                     # Nmap parametresi
-                    if nmap_param in ["-p", "-T", "--script"] and i + 1 < len(parametreler):
+                    if nmap_param in ["-p", "-T", "--script", "-oN", "-oX", "-oG"] and i + 1 < len(parametreler):
                         # Değer alan Nmap parametreleri
-                        nmap_parametreleri[nmap_param] = parametreler[i + 1]
+                        nmap_parametreleri[nmap_param] = True
                         i += 2
                     else:
                         # Değer almayan Nmap parametreleri
@@ -808,9 +809,10 @@ def main():
         i = nmap_index + 1
         while i < len(tokens):
             token = tokens[i]
-            if token.startswith('-') and token not in ["-h", "-L", "-P", "-l", "-p", "-t", "-W", "-o", "-b", "-R", "-F", "-C", "-M", "-m"]:
+            # Sadece gerçek Nmap parametrelerini kabul et
+            if token.startswith('-') and token in ["-sS", "-sT", "-sU", "-sA", "-sW", "-sM", "-sN", "-sF", "-sX", "-p", "-T", "-F", "-A", "-O", "-sV", "-sC", "--script", "-oN", "-oX", "-oG"]:
                 # Nmap parametresi
-                if token in ["-p", "-T", "--script"] and i + 1 < len(tokens):
+                if token in ["-p", "-T", "--script", "-oN", "-oX", "-oG"] and i + 1 < len(tokens):
                     # Değer alan Nmap parametreleri
                     nmap_parametreleri[token] = tokens[i + 1]
                     i += 2
