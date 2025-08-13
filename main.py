@@ -413,37 +413,49 @@ def parametrik_komut_isle(hedef_ip, parametreler, servis_arg=None):
     
     # Saldırıları başlat
     raporlayici = Raporlayici()
-    for servis_adi, port in acik_servisler.items():
-        if servis_adi in servis_esleme:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    def run_attack(servis_adi, port):
+        if servis_adi not in servis_esleme:
+            return (servis_adi, False, "Desteklenmeyen servis")
+        try:
+            print(f"\n[+] {servis_adi.upper()} saldırısı başlatılıyor...")
+            saldiri = servis_esleme[servis_adi](hedef_ip, port)
+            # Hydra parametrelerini uygula
+            for param, value in hydra_parametreleri.items():
+                if param == '-t': saldiri.thread_sayisi = int(value)
+                elif param == '-W': saldiri.timeout = int(value)
+                elif param == '-L': saldiri.kullanici_listesi = value
+                elif param == '-P': saldiri.sifre_listesi = value
+                elif param == '-l': saldiri.tek_kullanici = value
+                elif param == '-p': saldiri.tek_sifre = value
+                elif param == '-s': saldiri.port = int(value)
+                elif param == '-V': saldiri.verbose = True
+                elif param == '-d': saldiri.debug = True
+                elif param == '-f': saldiri.first_found = True
+                elif param == '-R': saldiri.restore = True
+                elif param == '-o': saldiri.output_file = value
+                elif param == '-b': saldiri.log_file = value
+                elif param == '-x': saldiri.xml_output = True
+                elif param == '-F': saldiri.form_params = value
+                elif param == '-C': saldiri.custom_params = value
+                elif param == '-M': saldiri.module_path = value
+                elif param == '-m': saldiri.service_name = value
+            ok = saldiri.saldir(kullanici_listesi, sifre_listesi)
+            return (servis_adi, bool(ok), None)
+        except Exception as e:
+            return (servis_adi, False, str(e))
+
+    max_workers = getattr(Ayarlar, 'BRUTE_FORCE_MAX_PARALLEL', 3)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(run_attack, s, p): (s, p) for s, p in acik_servisler.items()}
+        for future in as_completed(futures):
+            s, p = futures[future]
             try:
-                print(f"\n[+] {servis_adi.upper()} saldırısı başlatılıyor...")
-                saldiri = servis_esleme[servis_adi](hedef_ip, port)
-                
-                # Hydra parametrelerini uygula
-                for param, value in hydra_parametreleri.items():
-                    if param == '-t': saldiri.thread_sayisi = int(value)
-                    elif param == '-W': saldiri.timeout = int(value)
-                    elif param == '-L': saldiri.kullanici_listesi = value
-                    elif param == '-P': saldiri.sifre_listesi = value
-                    elif param == '-l': saldiri.tek_kullanici = value
-                    elif param == '-p': saldiri.tek_sifre = value
-                    elif param == '-s': saldiri.port = int(value)
-                    elif param == '-V': saldiri.verbose = True
-                    elif param == '-d': saldiri.debug = True
-                    elif param == '-f': saldiri.first_found = True
-                    elif param == '-R': saldiri.restore = True
-                    elif param == '-o': saldiri.output_file = value
-                    elif param == '-b': saldiri.log_file = value
-                    elif param == '-x': saldiri.xml_output = True
-                    elif param == '-F': saldiri.form_params = value
-                    elif param == '-C': saldiri.custom_params = value
-                    elif param == '-M': saldiri.module_path = value
-                    elif param == '-m': saldiri.service_name = value
-                
-                saldiri.saldir(kullanici_listesi, sifre_listesi)
+                srv, ok, err = future.result()
+                if err:
+                    print(f"[!] {srv.upper()} hatası: {err}")
             except Exception as e:
-                print(f"[!] {servis_adi.upper()} hatası: {str(e)}")
-                continue
+                print(f"[!] {s.upper()} beklenmeyen hata: {str(e)}")
 
 
 def main():
